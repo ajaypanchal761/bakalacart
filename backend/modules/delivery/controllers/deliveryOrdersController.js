@@ -741,6 +741,98 @@ export const acceptOrder = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Deny/Reject Order Assignment
+ * PATCH /api/delivery/orders/:orderId/deny
+ */
+export const denyOrder = asyncHandler(async (req, res) => {
+  try {
+    const delivery = req.delivery;
+    const { orderId } = req.params;
+    const { reason } = req.body || {};
+    const deliveryId = delivery._id;
+
+    console.log(`❌ Delivery partner ${deliveryId} denying order ${orderId}`);
+
+    // Find order by _id or orderId field
+    let order = null;
+    
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findById(orderId);
+    } else {
+      order = await Order.findOne({ orderId: orderId });
+    }
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    // Check if order is assigned to this delivery partner or if they were notified
+    const isAssigned = order.deliveryPartnerId?.toString() === deliveryId.toString();
+    
+    // Helper function to normalize ID for comparison
+    const normalizeId = (id) => {
+      if (!id) return null;
+      if (typeof id === 'string') return id;
+      if (id.toString) return id.toString();
+      return String(id);
+    };
+    
+    const normalizedDeliveryId = normalizeId(deliveryId);
+    const assignmentInfo = order.assignmentInfo || {};
+    const priorityIds = (assignmentInfo.priorityDeliveryPartnerIds || []).map(normalizeId).filter(Boolean);
+    const expandedIds = (assignmentInfo.expandedDeliveryPartnerIds || []).map(normalizeId).filter(Boolean);
+    
+    const wasNotified = priorityIds.includes(normalizedDeliveryId) || 
+                       expandedIds.includes(normalizedDeliveryId);
+    
+    // Also allow denial if order is in valid status (preparing/ready) - more permissive
+    // This allows delivery boys who received socket notification to deny even if not in assignmentInfo
+    const isValidStatus = order.status === 'preparing' || order.status === 'ready';
+
+    if (!isAssigned && !wasNotified && !isValidStatus) {
+      return errorResponse(res, 403, 'This order is not assigned to you or you were not notified about it');
+    }
+
+    // Add to denied list if not already there
+    const deniedList = order.deniedDeliveryPartners || [];
+    const alreadyDenied = deniedList.some(
+      denied => denied.deliveryPartnerId?.toString() === deliveryId.toString()
+    );
+
+    if (!alreadyDenied) {
+      deniedList.push({
+        deliveryPartnerId: deliveryId,
+        deniedAt: new Date(),
+        reason: reason || 'No reason provided'
+      });
+      order.deniedDeliveryPartners = deniedList;
+    }
+
+    // If order was assigned to this delivery partner, unassign it
+    if (isAssigned) {
+      order.deliveryPartnerId = null;
+      order.deliveryState = {
+        status: 'pending',
+        currentPhase: 'assigned'
+      };
+      console.log(`🔄 Unassigned order ${order.orderId} from delivery partner ${deliveryId}`);
+    }
+
+    await order.save();
+
+    console.log(`✅ Order ${order.orderId} denied by delivery partner ${deliveryId}`);
+
+    return successResponse(res, 200, 'Order denied successfully', {
+      orderId: order.orderId,
+      denied: true
+    });
+  } catch (error) {
+    console.error('Error denying order:', error);
+    return errorResponse(res, 500, 'Failed to deny order');
+  }
+});
+
+/**
  * Confirm Reached Pickup
  * PATCH /api/delivery/orders/:orderId/reached-pickup
  */

@@ -542,7 +542,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                     {companyName}
                   </span>
                 ) : (
-                  <img src={appzetoLogo} alt="Appzeto" className="w-24 h-10 object-contain" loading="lazy" />
+                  <img src={appzetoLogo} alt="Bakala" className="w-24 h-10 object-contain" loading="lazy" />
                 )}
               </div>
             </div>
@@ -566,7 +566,7 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                     {companyName.charAt(0).toUpperCase()}
                   </span>
                 ) : (
-                  <img src={appzetoLogo} alt="Appzeto" className="w-10 h-10 object-contain" loading="lazy" />
+                  <img src={appzetoLogo} alt="Bakala" className="w-10 h-10 object-contain" loading="lazy" />
                 )}
               </div>
             </div>

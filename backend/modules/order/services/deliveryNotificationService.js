@@ -62,6 +62,19 @@ export async function notifyDeliveryBoyNewOrder(order, deliveryPartnerId) {
     console.log(`⚠️ Order ${order.orderId} is cancelled. Cannot notify delivery partner.`);
     return { success: false, reason: 'Order is cancelled' };
   }
+
+  // Check if this delivery partner has already denied this order
+  const normalizedDeliveryPartnerId = deliveryPartnerId?.toString();
+  const deniedList = order.deniedDeliveryPartners || [];
+  const isDenied = deniedList.some(
+    denied => denied.deliveryPartnerId?.toString() === normalizedDeliveryPartnerId
+  );
+
+  if (isDenied) {
+    console.log(`⚠️ Delivery partner ${normalizedDeliveryPartnerId} has already denied order ${order.orderId}. Skipping notification.`);
+    return { success: false, reason: 'Delivery partner has already denied this order' };
+  }
+
   try {
     const io = await getIOInstance();
     
@@ -129,33 +142,60 @@ export async function notifyDeliveryBoyNewOrder(order, deliveryPartnerId) {
     }
 
     // Get restaurant details for pickup location
+    // Check if restaurant is already populated in order object
     let restaurant = null;
-    if (mongoose.Types.ObjectId.isValid(order.restaurantId)) {
-      restaurant = await Restaurant.findById(order.restaurantId).lean();
-    }
-    if (!restaurant) {
-      restaurant = await Restaurant.findOne({
-        $or: [
-          { restaurantId: order.restaurantId },
-          { _id: order.restaurantId }
-        ]
-      }).lean();
+    if (order.restaurantId && typeof order.restaurantId === 'object' && order.restaurantId._id) {
+      // Restaurant is already populated
+      restaurant = order.restaurantId;
+    } else {
+      // Need to fetch restaurant
+      if (mongoose.Types.ObjectId.isValid(order.restaurantId)) {
+        restaurant = await Restaurant.findById(order.restaurantId).lean();
+      }
+      if (!restaurant) {
+        restaurant = await Restaurant.findOne({
+          $or: [
+            { restaurantId: order.restaurantId },
+            { _id: order.restaurantId }
+          ]
+        }).lean();
+      }
     }
 
     // Calculate distances
     let pickupDistance = null;
     let deliveryDistance = null;
     
+    console.log('📍 Distance calculation inputs:', {
+      hasDeliveryLocation: !!deliveryPartner.availability?.currentLocation?.coordinates,
+      deliveryLocation: deliveryPartner.availability?.currentLocation?.coordinates,
+      hasRestaurantLocation: !!restaurant?.location?.coordinates,
+      restaurantLocation: restaurant?.location?.coordinates,
+      hasCustomerLocation: !!order.address?.location?.coordinates,
+      customerLocation: order.address?.location?.coordinates
+    });
+    
     if (deliveryPartner.availability?.currentLocation?.coordinates && restaurant?.location?.coordinates) {
       const [deliveryLng, deliveryLat] = deliveryPartner.availability.currentLocation.coordinates;
       const [restaurantLng, restaurantLat] = restaurant.location.coordinates;
-      const [customerLng, customerLat] = order.address.location.coordinates;
-
+      
       // Calculate pickup distance (delivery boy to restaurant)
       pickupDistance = calculateDistance(deliveryLat, deliveryLng, restaurantLat, restaurantLng);
+      console.log(`📍 Calculated pickup distance: ${pickupDistance.toFixed(2)} km`);
       
-      // Calculate delivery distance (restaurant to customer)
-      deliveryDistance = calculateDistance(restaurantLat, restaurantLng, customerLat, customerLng);
+      // Calculate delivery distance (restaurant to customer) if customer location available
+      if (order.address?.location?.coordinates) {
+        const [customerLng, customerLat] = order.address.location.coordinates;
+        deliveryDistance = calculateDistance(restaurantLat, restaurantLng, customerLat, customerLng);
+        console.log(`📍 Calculated delivery distance: ${deliveryDistance.toFixed(2)} km`);
+      } else {
+        console.warn('⚠️ Customer location not available for distance calculation');
+      }
+    } else {
+      console.warn('⚠️ Cannot calculate distances - missing location data:', {
+        deliveryLocation: !!deliveryPartner.availability?.currentLocation?.coordinates,
+        restaurantLocation: !!restaurant?.location?.coordinates
+      });
     }
 
     // Calculate estimated earnings; use order's delivery fee as fallback when 0 or distance missing
@@ -175,10 +215,16 @@ export async function notifyDeliveryBoyNewOrder(order, deliveryPartnerId) {
       restaurantId: order.restaurantId,
       restaurantName: order.restaurantName,
       restaurantLocation: restaurant?.location ? {
-        latitude: restaurant.location.coordinates[1],
-        longitude: restaurant.location.coordinates[0],
-        address: restaurant.location.formattedAddress || restaurant.address || 'Restaurant address'
-      } : null,
+        latitude: restaurant.location.coordinates?.[1] || restaurant.location.latitude,
+        longitude: restaurant.location.coordinates?.[0] || restaurant.location.longitude,
+        address: restaurant.location.formattedAddress || 
+                 restaurant.location.address || 
+                 restaurant.address || 
+                 order.restaurantAddress ||
+                 'Restaurant address'
+      } : (order.restaurantAddress ? {
+        address: order.restaurantAddress
+      } : null),
       customerLocation: {
         latitude: order.address.location.coordinates[1],
         longitude: order.address.location.coordinates[0],
@@ -197,10 +243,20 @@ export async function notifyDeliveryBoyNewOrder(order, deliveryPartnerId) {
       createdAt: order.createdAt,
       estimatedDeliveryTime: order.estimatedDeliveryTime || 30,
       note: order.note || '',
-      pickupDistance: pickupDistance ? `${pickupDistance.toFixed(2)} km` : 'Distance not available',
-      deliveryDistance: deliveryDistance ? `${deliveryDistance.toFixed(2)} km` : 'Calculating...',
-      deliveryDistanceRaw: deliveryDistance || 0, // Raw distance number for calculations
-      estimatedEarnings
+      pickupDistance: pickupDistance ? `${pickupDistance.toFixed(2)} km` : null, // null so frontend can calculate
+      deliveryDistance: deliveryDistance ? `${deliveryDistance.toFixed(2)} km` : null, // null so frontend can calculate
+      pickupDistanceRaw: pickupDistance || null, // Raw distance for calculations
+      deliveryDistanceRaw: deliveryDistance || null, // Raw distance for calculations
+      estimatedEarnings,
+      // Restaurant contact details
+      restaurantPhone: restaurant?.phone || restaurant?.ownerPhone || null,
+      restaurantOwnerPhone: restaurant?.ownerPhone || null,
+      // Order total and payment info
+      orderTotal: order.pricing?.total || 0,
+      paymentMethod: order.paymentMethod || order.payment?.method || 'razorpay',
+      // Estimated time calculations
+      estimatedPickupTime: pickupDistance ? Math.ceil((pickupDistance / 30) * 60) : null, // minutes based on 30 km/h average
+      estimatedDeliveryTimeMinutes: deliveryDistance ? Math.ceil((deliveryDistance / 30) * 60) : null // minutes based on 30 km/h average
     };
 
     // Get delivery namespace
@@ -516,8 +572,24 @@ export async function notifyMultipleDeliveryBoys(order, deliveryPartnerIds, phas
       hasCustomerLocation: !!orderNotification.customerLocation
     });
 
+    // Filter out denied delivery partners
+    const deniedList = order.deniedDeliveryPartners || [];
+    const deniedIds = deniedList.map(denied => denied.deliveryPartnerId?.toString());
+    
+    const validDeliveryPartnerIds = deliveryPartnerIds.filter(id => {
+      const normalizedId = id?.toString();
+      return !deniedIds.includes(normalizedId);
+    });
+
+    if (validDeliveryPartnerIds.length === 0) {
+      console.log(`⚠️ All delivery partners have denied order ${order.orderId || order._id}`);
+      return { success: false, notified: 0 };
+    }
+
+    console.log(`📋 Filtered ${deliveryPartnerIds.length - validDeliveryPartnerIds.length} denied delivery partners. Notifying ${validDeliveryPartnerIds.length} partners.`);
+
     // Notify each delivery partner
-    for (const deliveryPartnerId of deliveryPartnerIds) {
+    for (const deliveryPartnerId of validDeliveryPartnerIds) {
       try {
         const normalizedId = deliveryPartnerId?.toString() || deliveryPartnerId;
         const roomVariations = [

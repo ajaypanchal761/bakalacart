@@ -1,39 +1,21 @@
 /**
  * Wallet State Management Utility
  * Centralized management for wallet balances, transactions, and withdrawals
+ * Mock data removed - using API data only
  */
 
-import { usdToInr } from './currency'
-
-// Default wallet state structure (converted to INR)
-const DEFAULT_WALLET_STATE = {
-  // Balance values (in INR)
-  totalEarning: usdToInr(8845.23),
-  cashInHand: usdToInr(733.23),
-  balanceUnadjusted: usdToInr(3777.23),
-  withdrawalBalance: usdToInr(3044.00),
-  pendingWithdraw: usdToInr(68.00),
-  alreadyWithdraw: usdToInr(5000.00),
+// Empty wallet state structure
+const EMPTY_WALLET_STATE = {
+  // Balance values
+  totalEarning: 0,
+  cashInHand: 0,
+  balanceUnadjusted: 0,
+  withdrawalBalance: 0,
+  pendingWithdraw: 0,
+  alreadyWithdraw: 0,
   
-  // Transactions (in INR)
-  transactions: [
-    {
-      id: 1,
-      amount: usdToInr(68.00),
-      description: "Transferred to Card",
-      status: "Pending",
-      date: "01 Jun 2023",
-      type: "withdrawal"
-    },
-    {
-      id: 2,
-      amount: usdToInr(5000.00),
-      description: "Transferred to Account",
-      status: "Pending",
-      date: "07 Feb 2023",
-      type: "withdrawal"
-    }
-  ],
+  // Transactions
+  transactions: [],
   
   // Withdraw requests
   withdrawRequests: []
@@ -51,12 +33,11 @@ export const getWalletState = () => {
     if (saved) {
       return JSON.parse(saved)
     }
-    // Initialize with default state
-    setWalletState(DEFAULT_WALLET_STATE)
-    return DEFAULT_WALLET_STATE
+    // Return empty state instead of default mock data
+    return EMPTY_WALLET_STATE
   } catch (error) {
     console.error('Error reading wallet state from localStorage:', error)
-    return DEFAULT_WALLET_STATE
+    return EMPTY_WALLET_STATE
   }
 }
 

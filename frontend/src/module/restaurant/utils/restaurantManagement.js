@@ -1,25 +1,26 @@
 /**
  * Restaurant Management Utility Functions
  * Centralized management for restaurant details across the restaurant module
+ * Mock data removed - using API data only
  */
 
-// Default restaurant data
-const DEFAULT_RESTAURANT_DATA = {
+// Empty restaurant data structure
+const EMPTY_RESTAURANT_DATA = {
   restaurantName: {
-    english: "Hungry Puppets",
+    english: "",
     bengali: "",
     arabic: "",
     spanish: ""
   },
-  phoneNumber: "+101747410000",
-  address: "House: 00, Road: 00, Test City",
+  phoneNumber: "",
+  address: "",
   logo: null,
-  cover: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=800&h=400&fit=crop",
-  metaTitle: "Hungry Puppets Restaurant: Where Fla",
-  metaDescription: "Satisfy your cravings and indulge in a culinary adventure at Hungry Puppets Restaurant. Our menu is a symphony of taste, offering a delightful fusion of flavors that excite both palate and",
+  cover: null,
+  metaTitle: "",
+  metaDescription: "",
   metaImage: null,
-  rating: 4.7,
-  totalRatings: 3
+  rating: 0,
+  totalRatings: 0
 }
 
 const RESTAURANT_STORAGE_KEY = 'restaurant_data'
@@ -34,12 +35,11 @@ export const getRestaurantData = () => {
     if (saved) {
       return JSON.parse(saved)
     }
-    // Initialize with default data
-    setRestaurantData(DEFAULT_RESTAURANT_DATA)
-    return DEFAULT_RESTAURANT_DATA
+    // Return empty data instead of default mock data
+    return EMPTY_RESTAURANT_DATA
   } catch (error) {
     console.error('Error reading restaurant data from localStorage:', error)
-    return DEFAULT_RESTAURANT_DATA
+    return EMPTY_RESTAURANT_DATA
   }
 }
 

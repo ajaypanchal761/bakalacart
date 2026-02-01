@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +15,7 @@ import { Mail, User, Lock, Eye, EyeOff, ArrowLeft, Shield } from "lucide-react"
 import appzetoLogo from "@/assets/appzetologo.png"
 import { authAPI, adminAPI } from "@/lib/api"
 import { setAuthData } from "@/lib/utils/auth"
+import { getCachedSettings, loadBusinessSettings } from "@/lib/utils/businessSettings"
 
 export default function AdminSignup() {
   const navigate = useNavigate()
@@ -31,7 +32,50 @@ export default function AdminSignup() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [resendTimer, setResendTimer] = useState(0)
+  const [logoUrl, setLogoUrl] = useState(null)
   const inputRefs = useRef(Array(6).fill(null).map(() => null))
+
+  // Load business settings logo
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        // First check cache
+        let cached = getCachedSettings()
+        if (cached) {
+          if (cached.logo?.url) {
+            setLogoUrl(cached.logo.url)
+          }
+        }
+        
+        // Always try to load fresh data to ensure we have the latest
+        const settings = await loadBusinessSettings()
+        if (settings) {
+          if (settings.logo?.url) {
+            setLogoUrl(settings.logo.url)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading logo:', error)
+      }
+    }
+    
+    loadLogo()
+    
+    // Listen for business settings updates
+    const handleSettingsUpdate = () => {
+      const cached = getCachedSettings()
+      if (cached) {
+        if (cached.logo?.url) {
+          setLogoUrl(cached.logo.url)
+        }
+      }
+    }
+    window.addEventListener('businessSettingsUpdated', handleSettingsUpdate)
+    
+    return () => {
+      window.removeEventListener('businessSettingsUpdated', handleSettingsUpdate)
+    }
+  }, [])
 
   const handleFormSubmit = async (e) => {
     e.preventDefault()
@@ -212,12 +256,16 @@ export default function AdminSignup() {
         <Card className="w-full max-w-lg bg-white/90 backdrop-blur border-neutral-200 shadow-2xl">
           <CardHeader className="pb-4">
             <div className="flex w-full items-center gap-4 sm:gap-5">
-              <div className="flex h-14 w-28 shrink-0 items-center justify-center rounded-xl bg-gray-900/5 ring-1 ring-neutral-200">
+              <div className="flex h-20 w-40 shrink-0 items-center justify-center rounded-xl bg-gray-900/5 ring-1 ring-neutral-200">
                 <img
-                  src={appzetoLogo}
-                  alt="Appzeto"
-                  className="h-10 w-24 object-contain"
+                  src={logoUrl || appzetoLogo}
+                  alt="Company Logo"
+                  className="h-16 w-36 object-contain"
                   loading="lazy"
+                  onError={(e) => {
+                    // Fallback to default logo if business logo fails to load
+                    e.target.src = appzetoLogo
+                  }}
                 />
               </div>
               <div className="flex flex-col gap-1">

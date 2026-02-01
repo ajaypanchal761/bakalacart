@@ -1,6 +1,11 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Filter, UtensilsCrossed, Eye, ArrowUpDown, Info, Settings, FileText, FileSpreadsheet, Code } from "lucide-react"
-import { disbursementReportRestaurantsDummy, disbursementStats } from "../../data/disbursementReportRestaurantsDummy"
+// Dummy data removed - using empty arrays and default stats
+const disbursementStats = {
+  pending: 0,
+  completed: 0,
+  canceled: 0,
+};
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
@@ -12,7 +17,7 @@ import canceledIcon from "../../assets/Transaction-report-icons/trx5.png"
 
 export default function DisbursementReportRestaurants() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [disbursements, setDisbursements] = useState(disbursementReportRestaurantsDummy)
+  const [disbursements, setDisbursements] = useState([])
   const [filters, setFilters] = useState({
     zone: "All Zones",
     restaurant: "All restaurants",

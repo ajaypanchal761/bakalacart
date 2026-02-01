@@ -1,13 +1,18 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Filter, Calendar, ClipboardList, DollarSign, FileText, AlertCircle, Settings, FileSpreadsheet, Code } from "lucide-react"
-import { restaurantVATReportDummy, restaurantVATStats } from "../../data/restaurantVATReportDummy"
+// Dummy data removed - using empty arrays and default stats
+const restaurantVATStats = {
+  totalVAT: 0,
+  totalRevenue: 0,
+  totalRestaurants: 0,
+};
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
 
 export default function RestaurantVATReport() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [reports, setReports] = useState(restaurantVATReportDummy)
+  const [reports, setReports] = useState([])
   const [filters, setFilters] = useState({
     dateRange: "",
     restaurant: "All Restaurants",

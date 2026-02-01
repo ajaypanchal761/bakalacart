@@ -1,11 +1,10 @@
 import { useState, useMemo } from "react"
 import { Search, Wallet, Info, Calendar, Edit, Trash2 } from "lucide-react"
-import { walletBonusDummy } from "../../data/walletBonusDummy"
+// Dummy data removed
 
 export default function Bonus() {
-  const [activeLanguage, setActiveLanguage] = useState("default")
   const [searchQuery, setSearchQuery] = useState("")
-  const [bonuses, setBonuses] = useState(walletBonusDummy)
+  const [bonuses, setBonuses] = useState([])
   const [formData, setFormData] = useState({
     bonusTitle: "",
     shortDescription: "",
@@ -16,14 +15,6 @@ export default function Bonus() {
     startDate: "",
     expireDate: "",
   })
-
-  const languageTabs = [
-    { key: "default", label: "Default" },
-    { key: "en", label: "English(EN)" },
-    { key: "bn", label: "Bengali - বাংলা(BN)" },
-    { key: "ar", label: "Arabic - العربية (AR)" },
-    { key: "es", label: "Spanish - español(ES)" },
-  ]
 
   const filteredBonuses = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -83,41 +74,24 @@ export default function Bonus() {
             <h1 className="text-2xl font-bold text-slate-900">Wallet Bonus Setup</h1>
           </div>
 
-          {/* Language Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 mb-6">
-            {languageTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveLanguage(tab.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeLanguage === tab.key
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Bonus Title ({activeLanguage === "default" ? "Default" : languageTabs.find(t => t.key === activeLanguage)?.label})
+                  Bonus Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.bonusTitle}
                   onChange={(e) => handleInputChange("bonusTitle", e.target.value)}
-                  placeholder="Ex: EID Dhamaka"
+                  placeholder="Enter bonus title"
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Short Description ({activeLanguage === "default" ? "Default" : languageTabs.find(t => t.key === activeLanguage)?.label})
+                  Short Description
                 </label>
                 <input
                   type="text"

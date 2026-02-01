@@ -5,11 +5,6 @@ import UserLayout from "./UserLayout"
 
 // Home & Discovery
 import Home from "../pages/Home"
-import Dining from "../pages/Dining"
-import DiningRestaurants from "../pages/DiningRestaurants"
-import DiningCategory from "../pages/DiningCategory"
-import DiningExplore50 from "../pages/DiningExplore50"
-import DiningExploreNear from "../pages/DiningExploreNear"
 import Coffee from "../pages/Coffee"
 import Under250 from "../pages/Under250"
 import CategoryPage from "../pages/CategoryPage"
@@ -97,12 +92,6 @@ export default function UserRouter() {
           </ProtectedRoute>
         } 
       />
-      <Route path="/dining" element={<Dining />} />
-      <Route path="/dining/restaurants" element={<DiningRestaurants />} />
-      <Route path="/dining/:category" element={<DiningCategory />} />
-      <Route path="/dining/explore/upto50" element={<DiningExplore50 />} />
-      <Route path="/dining/explore/near-rated" element={<DiningExploreNear />} />
-      <Route path="/dining/coffee" element={<Coffee />} />
       <Route path="/under-250" element={<Under250 />} />
       <Route path="/category/:category" element={<CategoryPage />} />
       <Route path="/restaurants" element={<Restaurants />} />

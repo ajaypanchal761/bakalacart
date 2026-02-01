@@ -5,31 +5,33 @@ import Lenis from "lenis"
 import { ArrowLeft } from "lucide-react"
 import BottomNavbar from "../components/BottomNavbar"
 import MenuOverlay from "../components/MenuOverlay"
+// Mock data removed - using API data only
 
 export default function RestaurantCategoriesPage() {
   const navigate = useNavigate()
   const [showMenu, setShowMenu] = useState(false)
+  const [categories, setCategories] = useState([])
   const [failedImages, setFailedImages] = useState(new Set())
+  const [loading, setLoading] = useState(true)
 
-  // Food Categories with images
-  const categories = [
-    { id: 1, name: "American", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop&crop=center" },
-    { id: 2, name: "Bengali", image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop&crop=center" },
-    { id: 3, name: "Caribbean", image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop&crop=center" },
-    { id: 4, name: "Chinese", image: "https://images.unsplash.com/photo-1563379091339-03246963d96a?w=400&h=400&fit=crop&crop=center" },
-    { id: 5, name: "Italian", image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop&crop=center" },
-    { id: 6, name: "Mexican", image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop&crop=center" },
-    { id: 7, name: "Indian", image: "https://images.unsplash.com/photo-1563379091339-03246963d96a?w=400&h=400&fit=crop&crop=center" },
-    { id: 8, name: "Thai", image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop&crop=center" },
-    { id: 9, name: "Japanese", image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop&crop=center" },
-    { id: 10, name: "French", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop&crop=center" },
-    { id: 11, name: "Mediterranean", image: "https://images.unsplash.com/photo-1563379091339-03246963d96a?w=400&h=400&fit=crop&crop=center" },
-    { id: 12, name: "Korean", image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop&crop=center" },
-    { id: 13, name: "Vietnamese", image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=400&fit=crop&crop=center" },
-    { id: 14, name: "Turkish", image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=400&fit=crop&crop=center" },
-    { id: 15, name: "Greek", image: "https://images.unsplash.com/photo-1563379091339-03246963d96a?w=400&h=400&fit=crop&crop=center" },
-    { id: 16, name: "Spanish", image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop&crop=center" },
-  ]
+  // Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoading(true)
+        // TODO: Fetch categories from API
+        // Example:
+        // const response = await restaurantAPI.getCategories()
+        // setCategories(response.data.categories || [])
+      } catch (error) {
+        console.error("Error fetching categories:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCategories()
+  }, [])
 
   // Lenis smooth scrolling
   useEffect(() => {
@@ -77,66 +79,76 @@ export default function RestaurantCategoriesPage() {
 
       {/* Categories Grid */}
       <div className="max-w-6xl mx-auto px-4 py-6">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6"
-        >
-          {categories.map((category, index) => (
-            <motion.button
-              key={category.id}
-              initial={{ opacity: 0, scale: 0.8, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{
-                duration: 0.4,
-                delay: index * 0.05,
-                type: "spring",
-                stiffness: 200,
-                damping: 20
-              }}
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleCategoryClick(category.name)}
-              className="flex flex-col items-center gap-3 group"
-            >
-              {/* Circular Image */}
-              <motion.div
-                whileHover={{ rotate: 5 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md group-hover:shadow-lg transition-shadow bg-gray-200"
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-gray-600">Loading categories...</p>
+          </div>
+        ) : categories.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6"
+          >
+            {categories.map((category, index) => (
+              <motion.button
+                key={category.id}
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{
+                  duration: 0.4,
+                  delay: index * 0.05,
+                  type: "spring",
+                  stiffness: 200,
+                  damping: 20
+                }}
+                whileHover={{ scale: 1.05, y: -5 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleCategoryClick(category.name)}
+                className="flex flex-col items-center gap-3 group"
               >
-                {failedImages.has(category.id) ? (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#ff8100] to-[#ff9500] text-white font-bold text-lg md:text-xl">
-                    {category.name.charAt(0)}
-                  </div>
-                ) : (
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    loading="lazy"
-                    onError={() => {
-                      setFailedImages(prev => new Set([...prev, category.id]))
-                    }}
-                  />
-                )}
-                {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#ff8100]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-              </motion.div>
+                {/* Circular Image */}
+                <motion.div
+                  whileHover={{ rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md group-hover:shadow-lg transition-shadow bg-gray-200"
+                >
+                  {failedImages.has(category.id) || !category.image ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#ff8100] to-[#ff9500] text-white font-bold text-lg md:text-xl">
+                      {category.name?.charAt(0) || "?"}
+                    </div>
+                  ) : (
+                    <img
+                      src={category.image}
+                      alt={category.name || "Category"}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      loading="lazy"
+                      onError={() => {
+                        setFailedImages(prev => new Set([...prev, category.id]))
+                      }}
+                    />
+                  )}
+                  {/* Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#ff8100]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                </motion.div>
 
-              {/* Category Name */}
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: index * 0.05 + 0.2, duration: 0.3 }}
-                className="text-xs md:text-sm font-medium text-gray-700 group-hover:text-[#ff8100] transition-colors text-center"
-              >
-                {category.name}
-              </motion.span>
-            </motion.button>
-          ))}
-        </motion.div>
+                {/* Category Name */}
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: index * 0.05 + 0.2, duration: 0.3 }}
+                  className="text-xs md:text-sm font-medium text-gray-700 group-hover:text-[#ff8100] transition-colors text-center"
+                >
+                  {category.name}
+                </motion.span>
+              </motion.button>
+            ))}
+          </motion.div>
+        ) : (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-gray-600">No categories available.</p>
+          </div>
+        )}
       </div>
 
       {/* Bottom Navigation Bar - Mobile Only */}

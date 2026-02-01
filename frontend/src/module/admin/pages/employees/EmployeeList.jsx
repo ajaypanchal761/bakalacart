@@ -3,22 +3,8 @@ import { Users, ChevronDown, Search, Settings, Edit, Trash2, ArrowUpDown, Downlo
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-const employeesDummy = [
-  {
-    id: 1,
-    name: "Jhon",
-    phone: "+81234567890",
-    email: "jhon@gmail.com",
-    createdAt: "07 Feb, 2023",
-  },
-  {
-    id: 2,
-    name: "Monali Khan",
-    phone: "+81234567891",
-    email: "test@gmail.com",
-    createdAt: "22 Aug, 2021",
-  },
-]
+// Dummy data removed - using API data only
+const employeesDummy = []
 
 export default function EmployeeList() {
   const [searchQuery, setSearchQuery] = useState("")

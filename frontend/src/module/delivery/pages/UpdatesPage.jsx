@@ -22,92 +22,9 @@ import { Button } from "@/components/ui/button"
 import { useGigStore } from "../store/gigStore"
 import FeedNavbar from "../components/FeedNavbar"
 
-// Mock stories data
-const stories = [
-  {
-    id: "your-story",
-    title: "Your story",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-    isAdd: true,
-    content: [
-      { type: "image", url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&h=1200&fit=crop" }
-    ]
-  },
-  {
-    id: "Appzeto",
-    title: "Appzeto",
-    image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=100&h=100&fit=crop",
-    content: [
-      { type: "image", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=1200&fit=crop" },
-      { type: "image", url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&h=1200&fit=crop" }
-    ]
-  },
-  {
-    id: "milestones",
-    title: "Milestones",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=100&h=100&fit=crop",
-    content: [
-      { type: "image", url: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=1200&fit=crop" }
-    ]
-  },
-  {
-    id: "happy-children",
-    title: "Happy Children",
-    image: "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=100&h=100&fit=crop&crop=face",
-    content: [
-      { type: "image", url: "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&h=1200&fit=crop" }
-    ]
-  }
-]
-
-// Mock videos data
-const videos = [
-  {
-    id: 1,
-    title: "Summer Mela Champions",
-    thumbnail: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=600&fit=crop",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-    views: 12500,
-    likes: 890,
-    dislikes: 12
-  },
-  {
-    id: 2,
-    title: "Delivery Excellence",
-    thumbnail: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=600&fit=crop",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-    views: 9800,
-    likes: 650,
-    dislikes: 8
-  },
-  {
-    id: 3,
-    title: "Team Spotlight",
-    thumbnail: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=600&fit=crop",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    views: 15200,
-    likes: 1200,
-    dislikes: 15
-  },
-  {
-    id: 4,
-    title: "Success Stories",
-    thumbnail: "https://images.unsplash.com/photo-1562967914-608f82629710?w=400&h=600&fit=crop",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    views: 11200,
-    likes: 980,
-    dislikes: 10
-  },
-  {
-    id: 5,
-    title: "Customer First",
-    thumbnail: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=600&fit=crop",
-    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-    views: 8700,
-    likes: 720,
-    dislikes: 5
-  }
-]
+// Mock data removed - using API data only
+const stories = []
+const videos = []
 
 export default function UpdatesPage() {
   const navigate = useNavigate()

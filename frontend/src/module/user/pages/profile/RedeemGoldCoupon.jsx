@@ -39,7 +39,7 @@ export default function RedeemGoldCoupon() {
                     <Crown className="h-10 w-10 text-white" fill="currentColor" />
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Appzeto Gold</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">Bakala Gold</h2>
                 <p className="text-white/90 text-sm">
                   Unlock exclusive deals and offers with your Gold membership
                 </p>

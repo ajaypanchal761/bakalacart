@@ -33,36 +33,9 @@ export default function ConversationListPage() {
     }
   }, [])
 
-  // Mock conversation data
-  const customerConversations = [
-    {
-      id: 1,
-      name: "StackFood",
-      lastMessage: "Hi",
-      date: "08 Sep 2024",
-      role: "Admin",
-      avatar: null, // Will use icon instead
-    },
-  ]
-
-  const deliveryManConversations = [
-    {
-      id: 1,
-      name: "John Delivery",
-      lastMessage: "Order picked up",
-      date: "10 Sep 2024",
-      role: "Delivery",
-      avatar: null,
-    },
-    {
-      id: 2,
-      name: "Mike Rider",
-      lastMessage: "On the way",
-      date: "09 Sep 2024",
-      role: "Delivery",
-      avatar: null,
-    },
-  ]
+  // Mock data removed - using API data only
+  const customerConversations = []
+  const deliveryManConversations = []
 
   // Get conversations based on active tab
   const currentConversations = activeTab === "Customer" 

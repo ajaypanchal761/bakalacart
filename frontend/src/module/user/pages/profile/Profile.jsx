@@ -292,7 +292,7 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-         {/* Appzeto Money and Coupons - Side by Side */}
+       
          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-5 mt-3 mb-3">
           <Link to="/user/wallet" className="h-full">
             <motion.div
@@ -309,7 +309,7 @@ export default function Profile() {
                     <Wallet className="h-5 w-5 text-gray-700 dark:text-gray-300" />
                   </motion.div>
                    <div className="flex-1 min-w-0 flex flex-col">
-                     <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">Appzeto Money</span>
+                     <span className="text-sm font-medium text-gray-900 dark:text-white whitespace-nowrap">Bakala Money</span>
                      <span className="text-base font-semibold text-green-600 dark:text-green-400">₹{userProfile?.wallet?.balance?.toFixed(0) || '0'}</span>
                    </div>
                  </CardContent>

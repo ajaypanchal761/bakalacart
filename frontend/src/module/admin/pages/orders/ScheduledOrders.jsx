@@ -1,4 +1,4 @@
-import { ordersDummy } from "../../data/ordersDummy"
+// Dummy data removed
 import OrdersTopbar from "../../components/orders/OrdersTopbar"
 import OrdersTable from "../../components/orders/OrdersTable"
 import FilterPanel from "../../components/orders/FilterPanel"
@@ -6,9 +6,7 @@ import ViewOrderDialog from "../../components/orders/ViewOrderDialog"
 import SettingsDialog from "../../components/orders/SettingsDialog"
 import { useOrdersManagement } from "../../components/orders/useOrdersManagement"
 
-const scheduledOrders = ordersDummy.filter(
-  (order) => order.orderStatus === "Scheduled" || order.orderStatus === "Pending"
-)
+const scheduledOrders = []
 
 export default function ScheduledOrders() {
   const {

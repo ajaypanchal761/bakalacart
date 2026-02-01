@@ -34,10 +34,9 @@ export default function DesktopNavbar() {
   }
 
   // Check active routes - support both /user/* and /* paths
-  const isDining = location.pathname === "/dining" || location.pathname === "/user/dining"
   const isUnder250 = location.pathname === "/under-250" || location.pathname === "/user/under-250"
   const isProfile = location.pathname.startsWith("/profile") || location.pathname.startsWith("/user/profile")
-  const isDelivery = !isDining && !isUnder250 && !isProfile && (location.pathname === "/" || location.pathname === "/user" || (location.pathname.startsWith("/") && !location.pathname.startsWith("/restaurant") && !location.pathname.startsWith("/delivery") && !location.pathname.startsWith("/admin") && !location.pathname.startsWith("/usermain")))
+  const isDelivery = !isUnder250 && !isProfile && (location.pathname === "/" || location.pathname === "/user" || (location.pathname.startsWith("/") && !location.pathname.startsWith("/restaurant") && !location.pathname.startsWith("/delivery") && !location.pathname.startsWith("/admin") && !location.pathname.startsWith("/usermain")))
 
   // Reset visibility and scroll position when route changes
   useEffect(() => {
@@ -157,24 +156,6 @@ export default function DesktopNavbar() {
             >
               <span className="relative z-10">Under 250</span>
               {isUnder250 && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
-              )}
-            </Link>
-
-            {/* Divider */}
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
-
-            {/* Dining Tab */}
-            <Link
-              to="/user/dining"
-              className={`px-6 py-2.5 text-sm font-medium transition-all duration-200 relative ${
-                isDining
-                  ? "text-green-600 dark:text-green-500"
-                  : "text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-500"
-              }`}
-            >
-              <span className="relative z-10">Dining</span>
-              {isDining && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600 dark:bg-green-500 rounded-t-full" />
               )}
             </Link>

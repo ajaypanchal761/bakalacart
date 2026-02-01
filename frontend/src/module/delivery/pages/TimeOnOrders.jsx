@@ -19,69 +19,10 @@ export default function TimeOnOrders() {
     "All Day"
   ]
 
-  // Generate dummy session data
+  // Dummy data generation removed - using API data only
   const generateDummySessions = (date, timeRange) => {
-    const sessions = []
-    const seed = date.toISOString().split('T')[0].replace(/-/g, '')
-    const seedNum = parseInt(seed) % 1000
-    
-    const count = (seedNum % 8) + 2 // 2-9 sessions
-
-    for (let i = 0; i < count; i++) {
-      const startHour = Math.floor((seedNum + i) % 24)
-      const startMin = Math.floor((seedNum + i * 2) % 60)
-      const duration = ((seedNum + i) % 180) + 30 // 30-210 minutes
-      
-      const endMin = startMin + duration
-      const endHour = startHour + Math.floor(endMin / 60)
-      const finalEndMin = endMin % 60
-      
-      const startTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`
-      const endTime = `${String(endHour % 24).padStart(2, '0')}:${String(finalEndMin).padStart(2, '0')}`
-      const timeRangeStr = `${startTime} - ${endTime}`
-      
-      const hours = Math.floor(duration / 60)
-      const minutes = duration % 60
-      const timeOnOrders = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
-
-      sessions.push({
-        id: i + 1,
-        session: `Session ${i + 1}`,
-        timeRange: timeRangeStr,
-        timeOnOrders,
-        hours,
-        minutes,
-        duration
-      })
-    }
-
-    // Filter by time range if selected
-    if (timeRange !== "Select Time" && timeRange !== "All Day") {
-      const [start, end] = timeRange.split(' - ').map(t => {
-        const [h, m] = t.split(':').map(Number)
-        return h * 60 + m
-      })
-      
-      return sessions.filter(session => {
-        const [sessionStart] = session.timeRange.split(' - ').map(t => {
-          const [h, m] = t.split(':').map(Number)
-          return h * 60 + m
-        })
-        return sessionStart >= start && sessionStart < end
-      })
-    }
-
-    return sessions.sort((a, b) => {
-      const [aStart] = a.timeRange.split(' - ').map(t => {
-        const [h, m] = t.split(':').map(Number)
-        return h * 60 + m
-      })
-      const [bStart] = b.timeRange.split(' - ').map(t => {
-        const [h, m] = t.split(':').map(Number)
-        return h * 60 + m
-      })
-      return aStart - bStart
-    })
+    // Return empty array - API should provide real data
+    return []
   }
 
   const [sessions, setSessions] = useState(() => 

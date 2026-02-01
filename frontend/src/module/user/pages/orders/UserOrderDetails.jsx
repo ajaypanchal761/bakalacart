@@ -207,7 +207,7 @@ export default function UserOrderDetails() {
       // Title
       doc.setFontSize(16)
       doc.setFont('helvetica', 'bold')
-      doc.text('Appzeto Food Order: Summary and Receipt', 105, 20, { align: 'center' })
+      doc.text('Bakala Cart Order: Summary and Receipt', 105, 20, { align: 'center' })
       
       // Order details section
       let yPos = 35

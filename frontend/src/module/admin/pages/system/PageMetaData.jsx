@@ -64,9 +64,9 @@ export default function PageMetaDataPageMetaData() {
         title: page.name,
         description: "",
         keywords: "",
-        metaTitle: `${page.name} - Appzeto Food`,
+        metaTitle: `${page.name} - Bakala Cart`,
         metaDescription: `SEO description for ${page.name}`,
-        ogTitle: `${page.name} - Appzeto Food`,
+        ogTitle: `${page.name} - Bakala Cart`,
         ogDescription: `Open Graph description for ${page.name}`,
         ogImage: ""
       })

@@ -16,81 +16,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { DateRangeCalendar } from "@/components/ui/date-range-calendar"
 
-// Mock offers data
+// Mock data removed - using API data only
 const generateOffers = () => {
-  const today = new Date()
-  const offers = []
-  
-  // This week offers
-  for (let i = 0; i < 3; i++) {
-    const date = new Date(today)
-    date.setDate(today.getDate() + i)
-    const isLive = i === 0
-    
-    offers.push({
-      id: `this-week-${i}`,
-      title: "Full Day Bonus",
-      date: date,
-      timeSlots: [
-        { startTime: "8am", endTime: "12pm", label: "Morning" },
-        { startTime: "12pm", endTime: "4pm", label: "Afternoon" },
-        { startTime: "4pm", endTime: "8pm", label: "Evening" },
-        { startTime: "8pm", endTime: "11:59pm", label: "Night" }
-      ],
-      status: isLive ? "Live" : "Upcoming",
-      bonusAmount: 125,
-      week: "this",
-      incentiveTiers: [
-        { label: "Incentive", amount: 0 },
-        { label: "₹50", amount: 50 },
-        { label: "₹75", amount: 75 },
-        { label: "₹125", amount: 125 }
-      ],
-      gigsProgression: [1, 2, 3],
-      ordersProgression: [6, 9, 14],
-      compulsoryLogin: {
-        start: "6pm",
-        end: "11:59pm",
-        hours: 4
-      }
-    })
-  }
-  
-  // Next week offers
-  for (let i = 0; i < 2; i++) {
-    const date = new Date(today)
-    date.setDate(today.getDate() + 7 + i)
-    
-    offers.push({
-      id: `next-week-${i}`,
-      title: "Full Day Bonus",
-      date: date,
-      timeSlots: [
-        { startTime: "8am", endTime: "12pm", label: "Morning" },
-        { startTime: "12pm", endTime: "4pm", label: "Afternoon" },
-        { startTime: "4pm", endTime: "8pm", label: "Evening" },
-        { startTime: "8pm", endTime: "11:59pm", label: "Night" }
-      ],
-      status: "Upcoming",
-      bonusAmount: 125,
-      week: "next",
-      incentiveTiers: [
-        { label: "Incentive", amount: 0 },
-        { label: "₹50", amount: 50 },
-        { label: "₹75", amount: 75 },
-        { label: "₹125", amount: 125 }
-      ],
-      gigsProgression: [1, 2, 3],
-      ordersProgression: [6, 9, 14],
-      compulsoryLogin: {
-        start: "6pm",
-        end: "11:59pm",
-        hours: 4
-      }
-    })
-  }
-  
-  return offers
+  return []
 }
 
 export default function OffersPage() {

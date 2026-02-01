@@ -59,7 +59,7 @@ export default function DepositPopup({ onSuccess, cashInHand = 0 }) {
         amount: rp.amount,
         currency: rp.currency || "INR",
         order_id: rp.orderId,
-        name: "Appzeto Food",
+        name: "Bakala Cart",
         description: `Cash limit deposit - ₹${amt.toFixed(2)}`,
         prefill: { name, email, contact: phone },
         handler: async (res) => {

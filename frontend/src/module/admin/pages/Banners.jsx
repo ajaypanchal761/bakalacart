@@ -1,42 +1,18 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Plus, Edit, Trash2, Upload, Image as ImageIcon, Info } from "lucide-react"
-import { bannersDummy } from "../data/bannersDummy"
-// Using placeholders for banner images
-const bannerImage1 = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=400&fit=crop"
-const bannerImage2 = "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=800&h=400&fit=crop"
-const bannerImage3 = "https://images.unsplash.com/photo-1556910096-6f5e72db6803?w=800&h=400&fit=crop"
-const bannerImage4 = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=400&fit=crop"
-const bannerImage5 = "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=800&h=400&fit=crop"
-const bannerImage6 = "https://images.unsplash.com/photo-1556910096-6f5e72db6803?w=800&h=400&fit=crop"
-
-const bannerImages = {
-  1: bannerImage1,
-  2: bannerImage2,
-  3: bannerImage3,
-  4: bannerImage4,
-  5: bannerImage5,
-  6: bannerImage6,
-}
+// Mock data removed - using API data only
 
 export default function Banners() {
-  const [activeLanguage, setActiveLanguage] = useState("default")
   const [searchQuery, setSearchQuery] = useState("")
   const [bannerType, setBannerType] = useState("all")
-  const [banners, setBanners] = useState(bannersDummy)
+  const [banners, setBanners] = useState([])
+  const [imageErrors, setImageErrors] = useState({})
   const [formData, setFormData] = useState({
     title: "",
     zone: "",
     bannerType: "Restaurant wise",
     restaurant: "",
   })
-
-  const languageTabs = [
-    { key: "default", label: "Default" },
-    { key: "en", label: "English(EN)" },
-    { key: "bn", label: "Bengali - বাংলা(BN)" },
-    { key: "ar", label: "Arabic - العربية (AR)" },
-    { key: "es", label: "Spanish - español(ES)" },
-  ]
 
   const filteredBanners = useMemo(() => {
     let result = [...banners]
@@ -95,39 +71,22 @@ export default function Banners() {
       <div className="max-w-7xl mx-auto">
         {/* Add New Banner Section */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-6">
             <Plus className="w-5 h-5 text-blue-600" />
             <h1 className="text-2xl font-bold text-slate-900">Add New Banner</h1>
-          </div>
-
-          {/* Language Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 mb-6">
-            {languageTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveLanguage(tab.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeLanguage === tab.key
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
           </div>
 
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Banner Title ({activeLanguage === "default" ? "Default" : languageTabs.find(t => t.key === activeLanguage)?.label}) <span className="text-red-500">*</span>
+                  Banner Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => handleInputChange("title", e.target.value)}
-                  placeholder="New banner"
+                  placeholder="Enter banner title"
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
@@ -264,15 +223,19 @@ export default function Banners() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0">
-                          <img
-                            src={bannerImages[banner.sl] || bannerImage1}
-                            alt={banner.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src = bannerImage1
-                            }}
-                          />
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
+                          {banner.image && !imageErrors[banner.sl] ? (
+                            <img
+                              src={banner.image}
+                              alt={banner.title || "Banner"}
+                              className="w-full h-full object-cover"
+                              onError={() => {
+                                setImageErrors(prev => ({ ...prev, [banner.sl]: true }))
+                              }}
+                            />
+                          ) : (
+                            <ImageIcon className="w-6 h-6 text-slate-400" />
+                          )}
                         </div>
                         <span className="text-sm font-medium text-slate-900">{banner.title}</span>
                       </div>

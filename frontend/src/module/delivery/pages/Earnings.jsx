@@ -34,64 +34,17 @@ export default function Earnings() {
     return date > today
   }
 
-  // Generate dummy data based on selected date
+  // Dummy data generation removed - using API data only
   const generateDummyData = (date, period) => {
-    // Check if the date/period is in the future
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    let isFuture = false
-    if (period === 'day') {
-      const checkDate = new Date(date)
-      checkDate.setHours(0, 0, 0, 0)
-      isFuture = checkDate > today
-    } else if (period === 'week') {
-      const weekRange = getWeekRange(date)
-      isFuture = weekRange.end > today
-    } else if (period === 'month') {
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
-      monthEnd.setHours(23, 59, 59, 999)
-      isFuture = monthEnd > today
-    }
-    
-    // Return zero data for future periods
-    if (isFuture) {
-      return {
-        totalEarnings: 0,
-        orders: 0,
-        hours: 0,
-        minutes: 0,
-        orderEarning: 0,
-        incentive: 0,
-        otherEarnings: 0
-      }
-    }
-    
-    // Generate random but consistent data based on date
-    const dateStr = date.toISOString().split('T')[0]
-    const seed = dateStr.split('-').join('')
-    const seedNum = parseInt(seed) % 10000
-
-    // Different multipliers for different periods
-    const multiplier = period === 'day' ? 1 : period === 'week' ? 7 : 30
-    
-    const orders = (seedNum % 20) * multiplier
-    const hours = Math.floor((seedNum % 8) * multiplier / 2)
-    const minutes = ((seedNum % 60) * multiplier) % 60
-    
-    const orderEarning = (seedNum % 500 + 100) * multiplier
-    const incentive = (seedNum % 200 + 50) * multiplier
-    const otherEarnings = (seedNum % 100 + 20) * multiplier
-    const totalEarnings = orderEarning + incentive + otherEarnings
-
+    // Return zero data - API should provide real data
     return {
-      totalEarnings,
-      orders,
-      hours,
-      minutes,
-      orderEarning,
-      incentive,
-      otherEarnings
+      totalEarnings: 0,
+      orders: 0,
+      hours: 0,
+      minutes: 0,
+      orderEarning: 0,
+      incentive: 0,
+      otherEarnings: 0
     }
   }
 

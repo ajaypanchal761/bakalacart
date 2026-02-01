@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Filter, ArrowUpDown, Settings, FileText, FileSpreadsheet, Code } from "lucide-react"
-import { subscriptionReportDummy } from "../../data/subscriptionReportDummy"
+// Dummy data removed
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
 
 export default function SubscriptionReport() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [subscriptions, setSubscriptions] = useState(subscriptionReportDummy)
+  const [subscriptions, setSubscriptions] = useState([])
   const [filters, setFilters] = useState({
     restaurant: "All restaurants",
     package: "All packages",

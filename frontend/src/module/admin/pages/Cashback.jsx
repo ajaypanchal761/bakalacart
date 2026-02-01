@@ -1,14 +1,12 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Edit, Trash2, Calendar, RefreshCw } from "lucide-react"
-import { cashbackDummy } from "../data/cashbackDummy"
 
 export default function Cashback() {
-  const [activeLanguage, setActiveLanguage] = useState("default")
   const [searchQuery, setSearchQuery] = useState("")
   const [cashbackType, setCashbackType] = useState("all")
-  const [cashbacks, setCashbacks] = useState(cashbackDummy)
+  const [cashbacks, setCashbacks] = useState([])
   const [formData, setFormData] = useState({
-    title: "Eid Dhamaka",
+    title: "",
     customer: "",
     cashbackType: "Percentage (%)",
     cashbackAmount: "",
@@ -18,14 +16,6 @@ export default function Cashback() {
     endDate: "",
     limitForSameUser: "",
   })
-
-  const languageTabs = [
-    { key: "default", label: "Default" },
-    { key: "en", label: "English(EN)" },
-    { key: "bn", label: "Bengali - বাংলা (BN)" },
-    { key: "ar", label: "Arabic - العربية (AR)" },
-    { key: "es", label: "Spanish - español(ES)" },
-  ]
 
   const filteredCashbacks = useMemo(() => {
     let result = [...cashbacks]
@@ -60,7 +50,7 @@ export default function Cashback() {
 
   const handleReset = () => {
     setFormData({
-      title: "Eid Dhamaka",
+      title: "",
       customer: "",
       cashbackType: "Percentage (%)",
       cashbackAmount: "",
@@ -89,40 +79,24 @@ export default function Cashback() {
       <div className="max-w-7xl mx-auto">
         {/* Create Cashback Offer Section */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-orange-500 flex items-center justify-center">
               <RefreshCw className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Create Cashback Offer</h1>
           </div>
 
-          {/* Language Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 mb-6">
-            {languageTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveLanguage(tab.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeLanguage === tab.key
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Title ({activeLanguage === "default" ? "Default" : languageTabs.find(t => t.key === activeLanguage)?.label})
+                  Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => handleInputChange("title", e.target.value)}
+                  placeholder="Enter cashback title"
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>

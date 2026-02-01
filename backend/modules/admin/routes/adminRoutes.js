@@ -201,7 +201,10 @@ import {
   processRefund,
   getOngoingOrders,
   getTransactionReport,
-  getRestaurantReport
+  getRestaurantReport,
+  getOrdersForAssignment,
+  assignOrderToDeliveryBoy,
+  getDeliveryBoysForAssignment
 } from '../controllers/orderController.js';
 import {
   getAllReviews,
@@ -441,6 +444,9 @@ router.get('/orders/searching-deliveryman', getSearchingDeliverymanOrders);
 router.get('/orders/ongoing', getOngoingOrders);
 router.get('/orders/transaction-report', getTransactionReport);
 router.get('/orders/restaurant-report', getRestaurantReport);
+router.get('/orders/for-assignment', getOrdersForAssignment);
+router.post('/orders/:orderId/assign', assignOrderToDeliveryBoy);
+router.get('/delivery-boys/for-assignment', getDeliveryBoysForAssignment);
 
 // Order Refund - MUST be before /orders/:id to avoid route conflicts
 // Using explicit pattern /orders/refund/:orderId

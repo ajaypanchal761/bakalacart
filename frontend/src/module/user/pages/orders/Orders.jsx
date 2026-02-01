@@ -361,9 +361,9 @@ export default function Orders() {
       order.restaurantLocation ||
       `${order.address?.city || ""}, ${order.address?.state || ""}`.trim()
 
-    const shareText = `Check out ${order.restaurant} on Appzeto Food.
+    const shareText = `Check out ${order.restaurant} on Bakala Cart.
 Location: ${location || "Location not available"}
-Order again from this restaurant in the Appzeto app.`
+Order again from this restaurant in the Bakala Cart app.`
 
     try {
       if (navigator.share) {
@@ -846,7 +846,7 @@ Order again from this restaurant in the Appzeto app.`
 
       {/* Footer Branding */}
       <div className="flex justify-center mt-8 mb-4">
-        <h1 className="text-4xl font-black text-gray-200 tracking-tighter italic">appzeto</h1>
+        <h1 className="text-4xl font-black text-gray-200 tracking-tighter italic">Bakala Cart</h1>
       </div>
 
       {/* Rating & Feedback Modal */}

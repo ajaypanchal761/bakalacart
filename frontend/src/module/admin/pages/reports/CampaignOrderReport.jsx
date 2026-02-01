@@ -18,7 +18,16 @@ import {
   FileSpreadsheet,
   Code,
 } from "lucide-react";
-import { campaignOrderReportDummy, campaignOrderStats } from "../../data/campaignOrderReportDummy";
+// Dummy data removed - using empty arrays and default stats
+const campaignOrderStats = {
+  totalOrders: 0,
+  inProgressOrders: 0,
+  onTheWay: 0,
+  deliveredOrders: 0,
+  failedOrders: 0,
+  refundedOrders: 0,
+  canceledOrders: 0,
+};
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
@@ -31,7 +40,7 @@ export default function CampaignOrderReport() {
     time: "All Time",
   })
   const [searchQuery, setSearchQuery] = useState("")
-  const [orders] = useState(campaignOrderReportDummy)
+  const [orders] = useState([])
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 

@@ -50,8 +50,6 @@ import subscriptionRoutes from './modules/subscription/index.js';
 import uploadModuleRoutes from './modules/upload/index.js';
 import locationRoutes from './modules/location/index.js';
 import heroBannerRoutes from './modules/heroBanner/index.js';
-import diningRoutes from './modules/dining/index.js';
-import diningAdminRoutes from './modules/dining/routes/diningAdminRoutes.js';
 
 
 // Validate required environment variables
@@ -402,8 +400,6 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api', uploadModuleRoutes);
 app.use('/api/location', locationRoutes);
 app.use('/api', heroBannerRoutes);
-app.use('/api/dining', diningRoutes);
-app.use('/api/admin/dining', diningAdminRoutes);
 
 // 404 handler - but skip Socket.IO paths
 app.use((req, res, next) => {

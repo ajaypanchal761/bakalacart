@@ -6,7 +6,7 @@ const businessSettingsSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      default: 'Appzeto Food'
+      default: 'Bakala Cart'
     },
     email: {
       type: String,
@@ -110,7 +110,7 @@ businessSettingsSchema.statics.getSettings = async function() {
     let settings = await this.findOne();
     if (!settings) {
       settings = await this.create({
-        companyName: 'Appzeto Food',
+        companyName: 'Bakala Cart',
         email: 'info@appzetofood.com',
         phone: {
           countryCode: '+91',
@@ -128,7 +128,7 @@ businessSettingsSchema.statics.getSettings = async function() {
     if (!settings) {
       // Create with minimal required fields
       settings = new this({
-        companyName: 'Appzeto Food',
+        companyName: 'Bakala Cart',
         email: 'info@appzetofood.com',
         phone: {
           countryCode: '+91',

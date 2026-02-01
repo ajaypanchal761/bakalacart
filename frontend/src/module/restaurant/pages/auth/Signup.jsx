@@ -193,7 +193,7 @@ export default function RestaurantSignup() {
             </div>
             <div className="flex flex-col items-start">
               <span className="text-2xl font-bold tracking-wide text-primary-orange">
-                Appzeto Food
+                Bakala Cart
               </span>
               <span className="text-xs font-medium text-gray-500">
                 Restaurant Panel

@@ -35,23 +35,10 @@ const modulePermissions = [
   { id: "cashback", label: "Cashback" },
 ]
 
-const employeeRolesDummy = [
-  {
-    id: 1,
-    roleName: "Manager",
-    modules: ["Addon", "Banner", "Campaign", "Category", "Coupon", "Custom Role", "CustomerList", "Deliveryman", "Employee", "Food", "Notification", "Order", "Report", "Settings", "Pos", "Contact Message"],
-    createdAt: "07 Feb 2023",
-  },
-  {
-    id: 2,
-    roleName: "Customer Care Executive",
-    modules: ["CustomerList", "Deliveryman", "Order", "Restaurant"],
-    createdAt: "22 Aug 2021",
-  },
-]
+// Dummy data removed - using API data only
+const employeeRolesDummy = []
 
 export default function EmployeeRole() {
-  const [activeLanguage, setActiveLanguage] = useState("default")
   const [roleName, setRoleName] = useState("")
   const [permissions, setPermissions] = useState({})
   const [searchQuery, setSearchQuery] = useState("")
@@ -64,14 +51,6 @@ export default function EmployeeRole() {
     createdAt: true,
     actions: true,
   })
-
-  const languageTabs = [
-    { key: "default", label: "Default" },
-    { key: "en", label: "English(EN)" },
-    { key: "bn", label: "Bengali - বাংলা(BN)" },
-    { key: "ar", label: "Arabic - العربية(AR)" },
-    { key: "es", label: "Spanish - español(ES)" },
-  ]
 
   const handlePermissionChange = (permissionId, checked) => {
     setPermissions(prev => ({
@@ -165,23 +144,6 @@ export default function EmployeeRole() {
             <h1 className="text-2xl font-bold text-slate-900">Employee Role</h1>
           </div>
 
-          {/* Language Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200">
-            {languageTabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveLanguage(tab.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeLanguage === tab.key
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -189,7 +151,7 @@ export default function EmployeeRole() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Role Name ({activeLanguage === "default" ? "Default" : languageTabs.find(t => t.key === activeLanguage)?.label})
+                Role Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"

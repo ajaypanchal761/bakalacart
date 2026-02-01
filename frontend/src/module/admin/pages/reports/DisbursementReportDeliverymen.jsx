@@ -1,6 +1,11 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Filter, Truck, Eye, ArrowUpDown, Info, Settings, FileText, FileSpreadsheet, Code } from "lucide-react"
-import { disbursementReportDeliverymenDummy, disbursementStatsDeliverymen } from "../../data/disbursementReportDeliverymenDummy"
+// Dummy data removed - using empty arrays and default stats
+const disbursementStatsDeliverymen = {
+  pending: 0,
+  completed: 0,
+  canceled: 0,
+};
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
@@ -12,7 +17,7 @@ import canceledIcon from "../../assets/Transaction-report-icons/trx5.png"
 
 export default function DisbursementReportDeliverymen() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [disbursements, setDisbursements] = useState(disbursementReportDeliverymenDummy)
+  const [disbursements, setDisbursements] = useState([])
   const [filters, setFilters] = useState({
     zone: "All Zones",
     deliveryMan: "All delivery mans",

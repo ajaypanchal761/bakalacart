@@ -1051,7 +1051,7 @@ export default function RestaurantOnboarding() {
             placeholder="Restaurant's primary contact number"
           />
           <p className="text-[11px] text-gray-500 mt-1">
-            Customers, delivery partners and Appzeto may call on this number for order
+            Customers, delivery partners and Bakala may call on this number for order
             support.
           </p>
         </div>

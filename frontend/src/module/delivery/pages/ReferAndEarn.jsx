@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import { ArrowLeft, Headphones, ArrowRight, CheckCircle, Contact } from "lucide-react"
 import BottomPopup from "../components/BottomPopup"
 
-const STORAGE_KEY = "appzeto_food_referrals"
+const STORAGE_KEY = "bakala_cart_referrals"
 
 export default function ReferAndEarn() {
   const navigate = useNavigate()
@@ -70,7 +70,7 @@ export default function ReferAndEarn() {
   }
 
   const handleWhatsAppShare = () => {
-    const message = `Hey ${friendName}! Join Appzeto Food as a delivery partner and earn together!`
+    const message = `Hey ${friendName}! Join Bakala Cart as a delivery partner and earn together!`
     const whatsappUrl = `https://wa.me/${mobileNumber}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }

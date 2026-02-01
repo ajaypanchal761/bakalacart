@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
-import { restaurantAPI, diningAPI } from "@/lib/api"
+import { restaurantAPI } from "@/lib/api"
 import { API_BASE_URL } from "@/lib/api/config"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
@@ -108,67 +108,44 @@ export default function RestaurantDetails() {
         let response = null
         let apiRestaurant = null
 
-        // Try dining API first
+        // Try to get restaurant directly by slug (getRestaurantById supports both ID and slug)
+        // This doesn't require zoneId, so it works even if zone is not detected
         try {
-          response = await diningAPI.getRestaurantBySlug(slug)
+          response = await restaurantAPI.getRestaurantById(slug)
           if (response.data && response.data.success && response.data.data) {
             apiRestaurant = response.data.data
-            console.log('✅ Found restaurant in dining API:', apiRestaurant)
+            console.log('✅ Found restaurant in restaurant API by slug/ID:', apiRestaurant)
           }
-        } catch (diningError) {
-          // If dining API fails with 404, try restaurant API
-          if (diningError.response?.status === 404) {
-            console.log('⚠️ Restaurant not found in dining API, trying restaurant API...')
-            try {
-              // First, try to get restaurant directly by slug (getRestaurantById supports both ID and slug)
-              // This doesn't require zoneId, so it works even if zone is not detected
-              try {
-                response = await restaurantAPI.getRestaurantById(slug)
-                if (response.data && response.data.success && response.data.data) {
-                  apiRestaurant = response.data.data
-                  console.log('✅ Found restaurant in restaurant API by slug/ID:', apiRestaurant)
-                }
-              } catch (directLookupError) {
-                // If direct lookup fails, try searching by name (requires zoneId)
-                console.log('⚠️ Direct lookup failed, trying search by name...')
-                
-                // Only search if zoneId is available (zoneId is required by backend for search)
-                if (!zoneId) {
-                  console.warn('⚠️ User zone not available, cannot search restaurants. Restaurant may not be found.')
-                  // Don't throw error - let it fall through to show "Restaurant not found" message
-                } else {
-                  // Include zoneId for zone-based filtering
-                  const searchParams = { limit: 100, zoneId: zoneId }
-                  const searchResponse = await restaurantAPI.getRestaurants(searchParams)
-                  const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || []
-                  
-                  // Try to find by slug match or name match
-                  const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                  const matchingRestaurant = restaurants.find(r => 
-                    r.slug === slug || 
-                    r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
-                    r.name?.toLowerCase() === restaurantName.toLowerCase()
-                  )
-                  
-                  if (matchingRestaurant) {
-                    // Get full restaurant details by ID
-                    const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId)
-                    if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
-                      apiRestaurant = fullResponse.data.data
-                      console.log('✅ Found restaurant in restaurant API by name search:', apiRestaurant)
-                    }
-                  }
-                }
-              }
-            } catch (restaurantError) {
-              console.error('❌ Restaurant not found in restaurant API either:', restaurantError)
-              // Only throw if we haven't found the restaurant yet
-              if (!apiRestaurant) {
-                throw diningError // Throw original error to show "Restaurant not found"
+        } catch (directLookupError) {
+          // If direct lookup fails, try searching by name (requires zoneId)
+          console.log('⚠️ Direct lookup failed, trying search by name...')
+          
+          // Only search if zoneId is available (zoneId is required by backend for search)
+          if (!zoneId) {
+            console.warn('⚠️ User zone not available, cannot search restaurants. Restaurant may not be found.')
+            // Don't throw error - let it fall through to show "Restaurant not found" message
+          } else {
+            // Include zoneId for zone-based filtering
+            const searchParams = { limit: 100, zoneId: zoneId }
+            const searchResponse = await restaurantAPI.getRestaurants(searchParams)
+            const restaurants = searchResponse?.data?.data?.restaurants || searchResponse?.data?.data || []
+            
+            // Try to find by slug match or name match
+            const restaurantName = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            const matchingRestaurant = restaurants.find(r => 
+              r.slug === slug || 
+              r.name?.toLowerCase().replace(/\s+/g, '-') === slug.toLowerCase() ||
+              r.name?.toLowerCase() === restaurantName.toLowerCase()
+            )
+            
+            if (matchingRestaurant) {
+              // Get full restaurant details by ID
+              const fullResponse = await restaurantAPI.getRestaurantById(matchingRestaurant._id || matchingRestaurant.restaurantId)
+              if (fullResponse.data && fullResponse.data.success && fullResponse.data.data) {
+                apiRestaurant = fullResponse.data.data
+                console.log('✅ Found restaurant in restaurant API by name search:', apiRestaurant)
               }
             }
-          } else {
-            throw diningError // Re-throw if it's not a 404
           }
         }
 
@@ -180,7 +157,7 @@ export default function RestaurantDetails() {
           console.log('📋 Restaurant _id:', apiRestaurant?._id)
           console.log('📋 Restaurant.restaurant:', apiRestaurant?.restaurant)
 
-          // Check if this is a dining restaurant with nested restaurant data
+          // Get restaurant data (handle nested structure if present)
           const actualRestaurant = apiRestaurant?.restaurant || apiRestaurant
           
           // Helper function to format address with zone and pin code
@@ -335,7 +312,6 @@ export default function RestaurantDetails() {
           }
           
           // Transform API data to match expected format with comprehensive fallbacks
-          // Handle both dining restaurant and regular restaurant data structures
           const transformedRestaurant = {
             id: actualRestaurant?.restaurantId || actualRestaurant?._id || actualRestaurant?.id || apiRestaurant?.restaurantId || apiRestaurant?._id || null,
             name: actualRestaurant?.name || apiRestaurant?.name || apiRestaurant?.restaurantName || "Unknown Restaurant",
@@ -524,7 +500,7 @@ export default function RestaurantDetails() {
               }
             } catch (menuError) {
               if (menuError.response && menuError.response.status === 404) {
-                console.log('⚠️ Menu not found for this restaurant (might be a dining-only listing).')
+                console.log('⚠️ Menu not found for this restaurant.')
               } else {
                 console.error('❌ Error fetching menu:', menuError)
               }
@@ -564,7 +540,7 @@ export default function RestaurantDetails() {
               }
             } catch (inventoryError) {
               if (inventoryError.response && inventoryError.response.status === 404) {
-                console.log('⚠️ Inventory not found for this restaurant (might be a dining-only listing).')
+                console.log('⚠️ Inventory not found for this restaurant.')
               } else {
                 console.error('❌ Error fetching inventory:', inventoryError)
               }
@@ -992,7 +968,7 @@ export default function RestaurantDetails() {
     
     // Create share URL
     const shareUrl = `${window.location.origin}/user/restaurants/${restaurantSlug}`
-    const shareText = `Check out ${restaurantName} on AppzetoFood! ${shareUrl}`
+    const shareText = `Check out ${restaurantName} on Bakala Cart! ${shareUrl}`
     
     // Try Web Share API first (mobile)
     if (navigator.share) {

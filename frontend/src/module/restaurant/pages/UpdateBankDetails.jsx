@@ -1,26 +1,60 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft, AlertCircle } from "lucide-react"
+// Mock data removed - using API data only
 
 export default function UpdateBankDetails() {
   const navigate = useNavigate()
   const [isEditMode, setIsEditMode] = useState(false)
+  const [loading, setLoading] = useState(true)
   
   // Bank details state
   const [bankDetails, setBankDetails] = useState({
-    beneficiaryName: "Mr. Rajkumar Chouhan",
-    accountNumber: "42479177517",
-    confirmAccountNumber: "42479177517",
-    ifscCode: "SBIN0018764",
-    lastUpdated: "9 Dec, 2023"
+    beneficiaryName: "",
+    accountNumber: "",
+    confirmAccountNumber: "",
+    ifscCode: "",
+    lastUpdated: ""
   })
 
   const [formData, setFormData] = useState({
-    beneficiaryName: bankDetails.beneficiaryName,
-    accountNumber: bankDetails.accountNumber,
-    confirmAccountNumber: bankDetails.confirmAccountNumber,
-    ifscCode: bankDetails.ifscCode
+    beneficiaryName: "",
+    accountNumber: "",
+    confirmAccountNumber: "",
+    ifscCode: ""
   })
+
+  // Fetch bank details from API
+  useEffect(() => {
+    const fetchBankDetails = async () => {
+      try {
+        setLoading(true)
+        // TODO: Fetch bank details from API
+        // Example:
+        // const response = await restaurantAPI.getBankDetails()
+        // const data = response.data
+        // setBankDetails({
+        //   beneficiaryName: data.beneficiaryName || "",
+        //   accountNumber: data.accountNumber || "",
+        //   confirmAccountNumber: data.accountNumber || "",
+        //   ifscCode: data.ifscCode || "",
+        //   lastUpdated: data.lastUpdated || ""
+        // })
+        // setFormData({
+        //   beneficiaryName: data.beneficiaryName || "",
+        //   accountNumber: data.accountNumber || "",
+        //   confirmAccountNumber: data.accountNumber || "",
+        //   ifscCode: data.ifscCode || ""
+        // })
+      } catch (error) {
+        console.error("Error fetching bank details:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBankDetails()
+  }, [])
 
   const [errors, setErrors] = useState({
     beneficiaryName: "",
@@ -208,28 +242,39 @@ export default function UpdateBankDetails() {
       return
     }
 
-    // Update bank details
-    setBankDetails({
-      beneficiaryName: formData.beneficiaryName.trim(),
-      accountNumber: formData.accountNumber.replace(/[\s\-]/g, ""),
-      confirmAccountNumber: formData.confirmAccountNumber.replace(/[\s\-]/g, ""),
-      ifscCode: formData.ifscCode.trim().toUpperCase(),
-      lastUpdated: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    })
-    
-    // Switch back to view mode
-    setIsEditMode(false)
-    
-    // Reset touched state
-    setTouched({
-      beneficiaryName: false,
-      accountNumber: false,
-      confirmAccountNumber: false,
-      ifscCode: false
-    })
-    
-    // Here you would typically save to backend
-    console.log("Bank details updated:", formData)
+    // Save to backend API
+    try {
+      // TODO: Save bank details to API
+      // Example:
+      // await restaurantAPI.updateBankDetails({
+      //   beneficiaryName: formData.beneficiaryName.trim(),
+      //   accountNumber: formData.accountNumber.replace(/[\s\-]/g, ""),
+      //   ifscCode: formData.ifscCode.trim().toUpperCase()
+      // })
+      
+      // Update local state
+      setBankDetails({
+        beneficiaryName: formData.beneficiaryName.trim(),
+        accountNumber: formData.accountNumber.replace(/[\s\-]/g, ""),
+        confirmAccountNumber: formData.confirmAccountNumber.replace(/[\s\-]/g, ""),
+        ifscCode: formData.ifscCode.trim().toUpperCase(),
+        lastUpdated: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      })
+      
+      // Switch back to view mode
+      setIsEditMode(false)
+      
+      // Reset touched state
+      setTouched({
+        beneficiaryName: false,
+        accountNumber: false,
+        confirmAccountNumber: false,
+        ifscCode: false
+      })
+    } catch (error) {
+      console.error("Error updating bank details:", error)
+      alert("Failed to update bank details. Please try again.")
+    }
   }
 
   const handleEditClick = () => {
@@ -272,28 +317,44 @@ export default function UpdateBankDetails() {
 
       {/* Content */}
       <div className="flex-1 px-4 pt-4 pb-6">
-        {!isEditMode ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-gray-600">Loading bank details...</p>
+          </div>
+        ) : !isEditMode ? (
           /* View Mode */
           <>
             {/* Account Information Section */}
             <div className="mb-6">
               <h2 className="text-base font-bold text-gray-900 mb-2">Account information</h2>
-              <p className="text-sm text-gray-500 mb-4">Last updated on {bankDetails.lastUpdated}</p>
+              {bankDetails.lastUpdated && (
+                <p className="text-sm text-gray-500 mb-4">Last updated on {bankDetails.lastUpdated}</p>
+              )}
               
-              <div className="space-y-3">
-                <div className="flex justify-between items-start">
-                  <span className="text-sm text-gray-600">Beneficiary name:</span>
-                  <span className="text-sm font-medium text-gray-900 text-right ml-4">{bankDetails.beneficiaryName}</span>
+              {bankDetails.beneficiaryName || bankDetails.accountNumber || bankDetails.ifscCode ? (
+                <div className="space-y-3">
+                  {bankDetails.beneficiaryName && (
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm text-gray-600">Beneficiary name:</span>
+                      <span className="text-sm font-medium text-gray-900 text-right ml-4">{bankDetails.beneficiaryName}</span>
+                    </div>
+                  )}
+                  {bankDetails.accountNumber && (
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm text-gray-600">Account number:</span>
+                      <span className="text-sm font-medium text-gray-900 text-right ml-4">{bankDetails.accountNumber}</span>
+                    </div>
+                  )}
+                  {bankDetails.ifscCode && (
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm text-gray-600">IFSC code:</span>
+                      <span className="text-sm font-medium text-gray-900 text-right ml-4">{bankDetails.ifscCode}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between items-start">
-                  <span className="text-sm text-gray-600">Account number:</span>
-                  <span className="text-sm font-medium text-gray-900 text-right ml-4">{bankDetails.accountNumber}</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <span className="text-sm text-gray-600">IFSC code:</span>
-                  <span className="text-sm font-medium text-gray-900 text-right ml-4">{bankDetails.ifscCode}</span>
-                </div>
-              </div>
+              ) : (
+                <p className="text-sm text-gray-500">No bank details available. Please add your bank details.</p>
+              )}
             </div>
 
             {/* Divider */}

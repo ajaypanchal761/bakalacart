@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Package, Calendar, CheckCircle } from "lucide-react"
-import { subscriptionOrdersDummy } from "../data/subscriptionOrdersDummy"
+// Dummy data removed
 import OrdersTopbar from "../components/orders/OrdersTopbar"
 import SubscriptionOrdersTable from "../components/orders/SubscriptionOrdersTable"
 import SubscriptionFilterPanel from "../components/orders/SubscriptionFilterPanel"
@@ -42,22 +42,18 @@ export default function SubscriptionOrders() {
     handlePrintOrder,
     toggleColumn,
   } = useGenericTableManagement(
-    subscriptionOrdersDummy,
+    [],
     "Subscription Orders",
     ["subscriptionId", "customerName", "restaurant", "customerPhone"]
   )
 
   const restaurants = useMemo(() => {
-    return [...new Set(subscriptionOrdersDummy.map(o => o.restaurant))]
+    return []
   }, [])
 
   // Statistics
   const stats = useMemo(() => {
-    const total = subscriptionOrdersDummy.length
-    const expired = subscriptionOrdersDummy.filter(o => o.status === "Expired").length
-    const active = subscriptionOrdersDummy.filter(o => o.status === "Active").length
-    const totalDelivered = subscriptionOrdersDummy.reduce((sum, o) => sum + o.delivered, 0)
-    return { total, expired, active, totalDelivered }
+    return { total: 0, expired: 0, active: 0, totalDelivered: 0 }
   }, [])
 
   const resetColumns = () => {

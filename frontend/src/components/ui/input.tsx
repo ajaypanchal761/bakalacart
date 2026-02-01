@@ -8,14 +8,16 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
     
     // Ensure value is always a string (never undefined/null) when provided
     // This prevents "uncontrolled to controlled" React warnings
-    // When value prop exists (even if undefined), always convert to string
-    // This ensures React sees it as controlled from the start
+    // Convert undefined/null to empty string to ensure controlled input behavior
     const safeValue = value == null ? "" : String(value)
     
-    // If value prop was provided in original props (even if undefined), always use string
+    // Always include value prop if it exists in original props (even if undefined)
     // This ensures React sees it as controlled from the start, preventing warnings
-    // Only omit value prop if it was never provided in the first place (uncontrolled input)
-    const hasValueProp = "value" in props
+    // Use hasOwnProperty to check if value was explicitly provided
+    const hasValueProp = Object.prototype.hasOwnProperty.call(props, 'value')
+    
+    // If value prop exists, always provide it (as controlled input)
+    // If it doesn't exist, omit it (as uncontrolled input)
     const inputProps = hasValueProp
       ? { ...restProps, value: safeValue }
       : restProps

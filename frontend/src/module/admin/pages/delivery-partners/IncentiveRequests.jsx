@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { Search, CheckCircle, X, ArrowUpDown, Download, ChevronDown, Settings, FileText, FileSpreadsheet, Code, Check, Columns } from "lucide-react"
-import { incentiveRequestsDummy } from "../../data/incentiveRequestsDummy"
+// Dummy data removed
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportIncentivesToCSV, exportIncentivesToExcel, exportIncentivesToPDF, exportIncentivesToJSON } from "../../components/deliveryman/incentiveExportUtils"
@@ -8,7 +8,7 @@ import { exportIncentivesToCSV, exportIncentivesToExcel, exportIncentivesToPDF, 
 export default function IncentiveRequests() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedItems, setSelectedItems] = useState([])
-  const [requests, setRequests] = useState(incentiveRequestsDummy)
+  const [requests, setRequests] = useState([])
   const [isApproveOpen, setIsApproveOpen] = useState(false)
   const [isDenyOpen, setIsDenyOpen] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState(null)

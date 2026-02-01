@@ -1,19 +1,11 @@
 import { useState } from "react"
-import { Edit, Upload, Info } from "lucide-react"
-// Using placeholder for promotional banner
-const bannerPreview = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&h=400&fit=crop"
+import { Edit, Upload, Info, Image as ImageIcon } from "lucide-react"
+// Mock data removed - using API data only
 
 export default function PromotionalBanner() {
-  const [activeLanguage, setActiveLanguage] = useState("default")
-  const [title, setTitle] = useState("Promotional")
-
-  const languageTabs = [
-    { key: "default", label: "Default" },
-    { key: "en", label: "English(EN)" },
-    { key: "bn", label: "Bengali - বাংলা(BN)" },
-    { key: "ar", label: "Arabic - العربية (AR)" },
-    { key: "es", label: "Spanish - español(ES)" },
-  ]
+  const [title, setTitle] = useState("")
+  const [bannerImage, setBannerImage] = useState("")
+  const [imageError, setImageError] = useState(false)
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -31,33 +23,17 @@ export default function PromotionalBanner() {
             <h1 className="text-2xl font-bold text-slate-900">Promotional Banner</h1>
           </div>
 
-          {/* Language Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 mb-6">
-            {languageTabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveLanguage(tab.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeLanguage === tab.key
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
           <form onSubmit={handleSubmit}>
             {/* Title Input */}
             <div className="mb-6">
               <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Title ({activeLanguage === "default" ? "Default" : languageTabs.find(t => t.key === activeLanguage)?.label})
+                Title <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter promotional banner title"
                 className="w-full px-4 py-2.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
@@ -70,25 +46,26 @@ export default function PromotionalBanner() {
               </div>
 
               {/* Banner Preview */}
-              <div className="border-2 border-slate-200 rounded-lg overflow-hidden mb-4">
-                <div className="relative w-full" style={{ aspectRatio: "5/1", minHeight: "200px" }}>
-                  <div className="absolute inset-0 bg-gradient-to-r from-slate-800 to-slate-900 flex items-center justify-center">
-                    <div className="text-white text-center px-8">
-                      <p className="text-2xl font-bold mb-2">Fresh Flavors Delivered Right to You</p>
-                    </div>
-                  </div>
-                  <div className="absolute right-0 top-0 bottom-0 w-1/2">
-                    <img
-                      src={bannerPreview}
-                      alt="Banner preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.display = "none"
-                      }}
-                    />
+              {bannerImage && (
+                <div className="border-2 border-slate-200 rounded-lg overflow-hidden mb-4">
+                  <div className="relative w-full" style={{ aspectRatio: "5/1", minHeight: "200px" }}>
+                    {bannerImage && !imageError ? (
+                      <img
+                        src={bannerImage}
+                        alt="Banner preview"
+                        className="w-full h-full object-cover"
+                        onError={() => {
+                          setImageError(true)
+                        }}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-slate-100 flex items-center justify-center">
+                        <ImageIcon className="w-12 h-12 text-slate-400" />
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Upload Instructions */}
               <div className="text-sm text-slate-600 space-y-1">

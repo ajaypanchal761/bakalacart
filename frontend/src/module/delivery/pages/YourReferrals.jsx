@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { ArrowLeft, Headphones, ArrowRight, Phone } from "lucide-react"
 
-const STORAGE_KEY = "appzeto_food_referrals"
+const STORAGE_KEY = "bakala_cart_referrals"
 
 export default function YourReferrals() {
   const navigate = useNavigate()
@@ -56,7 +56,7 @@ export default function YourReferrals() {
   }
 
   const handleWhatsApp = (mobile, name) => {
-    const message = `Hey ${name}! Join Appzeto Food as a delivery partner and earn together!`
+    const message = `Hey ${name}! Join Bakala Cart as a delivery partner and earn together!`
     const whatsappUrl = `https://wa.me/${mobile}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }

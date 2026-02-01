@@ -1,6 +1,13 @@
 import { useState } from "react"
 import { Download, ChevronDown, RefreshCw, FileText, DollarSign, Settings, FileSpreadsheet, Code } from "lucide-react"
-import { taxReportDummy, taxStats } from "../../data/taxReportDummy"
+// Dummy data removed - using empty arrays and default stats
+const taxReportDummy = []
+const taxStats = {
+  totalTax: 0,
+  totalRevenue: 0,
+  taxRate: 0,
+  totalIncome: 0,
+};
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"

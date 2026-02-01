@@ -153,11 +153,11 @@ class SMSIndiaHubService {
         } else if (purpose === 'reset_password') {
           purposeText = 'password reset';
         }
-        message = `Welcome to the Appzeto Food powered by SMSINDIAHUB. Your OTP for ${purposeText} is ${otp}`;
+        message = `Welcome to the Bakala Cart powered by SMSINDIAHUB. Your OTP for ${purposeText} is ${otp}`;
       } else {
         // For transactional SMS, use fixed template text that matches DLT registration
         // IMPORTANT: This must match the registered DLT template exactly
-        message = `Welcome to the Appzeto Food powered by SMSINDIAHUB. Your OTP for registration is ${otp}`;
+        message = `Welcome to the Bakala Cart powered by SMSINDIAHUB. Your OTP for registration is ${otp}`;
       }
       
       // Build the API URL with query parameters (same format as RentYatra)

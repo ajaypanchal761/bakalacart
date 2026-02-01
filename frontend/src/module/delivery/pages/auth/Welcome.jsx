@@ -74,7 +74,7 @@ export default function DeliveryWelcome() {
             Hi {userName},
           </h1>
           <h2 className="text-lg font-semibold text-gray-900">
-            Welcome to Appzeto Delivery
+            Welcome to Bakala Cart Delivery
           </h2>
         </motion.div>
 
@@ -389,31 +389,6 @@ export default function DeliveryWelcome() {
           >
             Profile active
           </motion.h2>
-
-          {/* Delivery Bag Card */}
-          <motion.div
-            className="w-full bg-gray-50 rounded-xl p-4 mb-6 flex items-center gap-4 z-10 relative"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7, duration: 0.5 }}
-          >
-            {/* Bag Image Placeholder */}
-            <div className="w-20 h-20 bg-black rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-            
-            {/* Bag Info */}
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-1">
-                Appzeto delivery bag
-              </h3>
-              <p className="text-sm text-gray-600">
-                Your bag will be shipped after your second day of order deliveries
-              </p>
-            </div>
-          </motion.div>
 
           {/* Proceed Button */}
           <motion.button

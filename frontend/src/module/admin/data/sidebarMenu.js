@@ -70,6 +70,12 @@ export const sidebarMenuData = [
     label: "ORDER MANAGEMENT",
     items: [
       {
+        type: "link",
+        label: "Order Assign",
+        path: "/admin/order-assign",
+        icon: "Package",
+      },
+      {
         type: "expandable",
         label: "Orders",
         icon: "FileText",
@@ -161,12 +167,6 @@ export const sidebarMenuData = [
         label: "Delivery boy Wallet",
         path: "/admin/delivery-boy-wallet",
         icon: "PiggyBank",
-      },
-      {
-        type: "link",
-        label: "Delivery Boy Commission",
-        path: "/admin/delivery-boy-commission",
-        icon: "DollarSign",
       },
       {
         type: "link",
@@ -272,12 +272,6 @@ export const sidebarMenuData = [
         label: "Landing Page Management",
         path: "/admin/hero-banner-management",
         icon: "Image",
-      },
-      {
-        type: "link",
-        label: "Dining Management",
-        path: "/admin/dining-management",
-        icon: "UtensilsCrossed",
       },
     ],
   },

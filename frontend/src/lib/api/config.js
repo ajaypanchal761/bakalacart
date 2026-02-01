@@ -218,6 +218,7 @@ export const API_ENDPOINTS = {
     ORDERS: '/delivery/orders',
     ORDER_BY_ID: '/delivery/orders/:orderId',
     ORDER_ACCEPT: '/delivery/orders/:orderId/accept',
+    ORDER_DENY: '/delivery/orders/:orderId/deny',
     ORDER_REACHED_PICKUP: '/delivery/orders/:orderId/reached-pickup',
     ORDER_CONFIRM_ID: '/delivery/orders/:orderId/confirm-order-id',
     ORDER_REACHED_DROP: '/delivery/orders/:orderId/reached-drop',
@@ -301,6 +302,9 @@ export const API_ENDPOINTS = {
     ORDERS_ONGOING: '/admin/orders/ongoing',
     ORDERS_TRANSACTION_REPORT: '/admin/orders/transaction-report',
     ORDERS_RESTAURANT_REPORT: '/admin/orders/restaurant-report',
+    ORDERS_FOR_ASSIGNMENT: '/admin/orders/for-assignment',
+    ORDER_ASSIGN: '/admin/orders/:orderId/assign',
+    DELIVERY_BOYS_FOR_ASSIGNMENT: '/admin/delivery-boys/for-assignment',
     CUSTOMER_WALLET_REPORT: '/admin/customer-wallet-report',
     WITHDRAWAL_REQUESTS: '/admin/withdrawal/requests',
     WITHDRAWAL_APPROVE: '/admin/withdrawal/:id/approve',
@@ -388,17 +392,6 @@ export const API_ENDPOINTS = {
     TOGGLE_STATUS: '/hero-banners/:id/status',
     TOP_10_PUBLIC: '/hero-banners/top-10/public',
     GOURMET_PUBLIC: '/hero-banners/gourmet/public',
-  },
-  // Dining endpoints
-  DINING: {
-    RESTAURANTS: '/dining/restaurants',
-    RESTAURANT_BY_SLUG: '/dining/restaurants/:slug',
-    CATEGORIES: '/dining/categories',
-    LIMELIGHT: '/dining/limelight',
-    BANK_OFFERS: '/dining/bank-offers',
-    MUST_TRIES: '/dining/must-tries',
-    OFFER_BANNERS: '/dining/offer-banners',
-    STORIES: '/dining/stories',
   },
 };
 

@@ -32,27 +32,8 @@ export default function ChatDetailPage() {
     }
   }, [])
 
-  // Mock messages data
-  const messages = [
-    {
-      id: 1,
-      text: "Hi",
-      sender: "other",
-      time: "10:30 AM",
-    },
-    {
-      id: 2,
-      text: "Hello! How can I help you?",
-      sender: "me",
-      time: "10:31 AM",
-    },
-    {
-      id: 3,
-      text: "I need help with my order",
-      sender: "other",
-      time: "10:32 AM",
-    },
-  ]
+  // Mock data removed - using API data only
+  const messages = []
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })

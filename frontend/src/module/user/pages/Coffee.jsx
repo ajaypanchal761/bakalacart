@@ -1,129 +1,71 @@
-import { useCallback } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { Star, ArrowLeft } from "lucide-react"
+import { useCallback, useState, useEffect } from "react"
+import { Link, useNavigate, useParams } from "react-router-dom"
+import { Star, ArrowLeft, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import AnimatedPage from "../components/AnimatedPage"
 import { useLocationSelector } from "../components/UserLayout"
 import { useLocation as useLocationHook } from "../hooks/useLocation"
 import { FaLocationDot } from "react-icons/fa6"
-// Using placeholder for coffee banner
-const coffeeBanner = "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=1200&h=400&fit=crop"
-// Using placeholder for starbucks logo
-const starbucksLogo = "https://images.unsplash.com/photo-1511920170033-f8396924c348?w=200&h=200&fit=crop"
-
-const starbucksStores = [
-  {
-    id: 1,
-    name: "Starbucks",
-    rating: 4.4,
-    location: "YN Road, Indore",
-    distance: "1.3 km",
-    price: "₹900 for two",
-    offer: "Flat 25% OFF",
-    logo: starbucksLogo
-  },
-  {
-    id: 2,
-    name: "Starbucks",
-    rating: 2.8,
-    location: "YN Road, Indore",
-    distance: "1.3 km",
-    price: "₹600 for two",
-    offer: null,
-    logo: starbucksLogo
-  },
-  {
-    id: 3,
-    name: "Starbucks",
-    rating: 4.5,
-    location: "MG Road, Indore",
-    distance: "2.1 km",
-    price: "₹850 for two",
-    offer: "Flat 20% OFF",
-    logo: starbucksLogo
-  },
-  {
-    id: 4,
-    name: "Starbucks",
-    rating: 4.2,
-    location: "Vijay Nagar, Indore",
-    distance: "0.9 km",
-    price: "₹950 for two",
-    offer: "Flat 30% OFF",
-    logo: starbucksLogo
-  },
-]
-
-const cafeCoffeeDayStores = [
-  {
-    id: 5,
-    name: "Cafe Coffee Day",
-    rating: 4.3,
-    location: "Palasia, Indore",
-    distance: "1.5 km",
-    price: "₹500 for two",
-    offer: "Flat 15% OFF",
-    logo: null
-  },
-  {
-    id: 6,
-    name: "Cafe Coffee Day",
-    rating: 4.1,
-    location: "Scheme 54, Indore",
-    distance: "2.3 km",
-    price: "₹450 for two",
-    offer: null,
-    logo: null
-  },
-]
-
-const blueTokaiStores = [
-  {
-    id: 7,
-    name: "Blue Tokai",
-    rating: 4.6,
-    location: "Bhawarkua, Indore",
-    distance: "1.8 km",
-    price: "₹700 for two",
-    offer: "Buy 1 Get 1 Free",
-    logo: null
-  },
-  {
-    id: 8,
-    name: "Blue Tokai",
-    rating: 4.4,
-    location: "Press Complex, Indore",
-    distance: "2.5 km",
-    price: "₹650 for two",
-    offer: "Flat 20% OFF",
-    logo: null
-  },
-]
+// Mock data removed - using API data only
 
 export default function Coffee() {
   const navigate = useNavigate()
+  const { categoryId } = useParams()
   const { openLocationSelector } = useLocationSelector()
   const { location } = useLocationHook()
   const cityName = location?.city || "Select"
+  
+  const [loading, setLoading] = useState(true)
+  const [bannerImage, setBannerImage] = useState("")
+  const [categoryTitle, setCategoryTitle] = useState("")
+  const [categoryDescription, setCategoryDescription] = useState("")
+  const [storeSections, setStoreSections] = useState([])
+  const [imageErrors, setImageErrors] = useState(new Set())
+
+  // Fetch coffee category data from API
+  useEffect(() => {
+    const fetchCategoryData = async () => {
+      try {
+        setLoading(true)
+        // TODO: Fetch category data from API
+        // Example:
+        // const response = await userAPI.getCategory(categoryId || "coffee")
+        // setBannerImage(response.data.bannerImage || "")
+        // setCategoryTitle(response.data.title || "")
+        // setCategoryDescription(response.data.description || "")
+        // setStoreSections(response.data.storeSections || [])
+      } catch (error) {
+        console.error("Error fetching category data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCategoryData()
+  }, [categoryId])
 
   const handleLocationClick = useCallback(() => {
     openLocationSelector()
   }, [openLocationSelector])
 
   const renderStoreList = (stores, sectionTitle) => {
+    if (!stores || stores.length === 0) return null
+    
     return (
       <div className="mb-8">
         {/* Section Header */}
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide text-center">
-            {sectionTitle}
-          </h3>
-        </div>
+        {sectionTitle && (
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide text-center">
+              {sectionTitle}
+            </h3>
+          </div>
+        )}
 
         {/* Store List */}
         <div className="space-y-0">
           {stores.map((store, index) => {
-            const storeSlug = store.name.toLowerCase().replace(/\s+/g, "-")
+            const storeSlug = store.slug || store.name?.toLowerCase().replace(/\s+/g, "-") || `store-${store.id}`
             const isHighRating = store.rating >= 4.0
             
             return (
@@ -136,19 +78,19 @@ export default function Coffee() {
                   {/* Logo - Circular */}
                   <div className="flex-shrink-0">
                     <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
-                      {store.logo ? (
+                      {store.logo && !imageErrors.has(store.id) ? (
                         <img
                           src={store.logo}
-                          alt={store.name}
+                          alt={store.name || "Store"}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none'
+                          onError={() => {
+                            setImageErrors(prev => new Set([...prev, store.id]))
                           }}
                         />
                       ) : (
                         <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                           <span className="text-gray-400 text-xs font-semibold">
-                            {store.name.charAt(0)}
+                            {store.name?.charAt(0) || "?"}
                           </span>
                         </div>
                       )}
@@ -158,32 +100,40 @@ export default function Coffee() {
                   {/* Store Info */}
                   <div className="flex-1 min-w-0">
                     {/* Location Name */}
-                    <h4 className="text-base font-bold text-gray-900 mb-2">
-                      {store.location}
-                    </h4>
+                    {store.location && (
+                      <h4 className="text-base font-bold text-gray-900 mb-2">
+                        {store.location}
+                      </h4>
+                    )}
 
                     {/* Rating Badge */}
-                    <div className="mb-2">
-                      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded ${
-                        isHighRating 
-                          ? 'bg-green-600 text-white' 
-                          : 'bg-yellow-400 text-gray-900'
-                      }`}>
-                        <span className="text-sm font-semibold">{store.rating}</span>
-                        <Star className={`h-3 w-3 ${isHighRating ? 'fill-white text-white' : 'fill-gray-900 text-gray-900'}`} />
+                    {store.rating && (
+                      <div className="mb-2">
+                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded ${
+                          isHighRating 
+                            ? 'bg-green-600 text-white' 
+                            : 'bg-yellow-400 text-gray-900'
+                        }`}>
+                          <span className="text-sm font-semibold">{store.rating}</span>
+                          <Star className={`h-3 w-3 ${isHighRating ? 'fill-white text-white' : 'fill-gray-900 text-gray-900'}`} />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {/* Distance */}
-                    <p className="text-sm text-gray-500 mb-1">
-                      {store.distance}
-                    </p>
+                    {store.distance && (
+                      <p className="text-sm text-gray-500 mb-1">
+                        {store.distance}
+                      </p>
+                    )}
 
                     {/* Price and Offer */}
                     <div className="flex items-center gap-3 flex-wrap">
-                      <p className="text-sm text-gray-700">
-                        {store.price}
-                      </p>
+                      {store.price && (
+                        <p className="text-sm text-gray-700">
+                          {store.price}
+                        </p>
+                      )}
                       {store.offer && (
                         <span className="text-sm font-medium text-blue-600">
                           {store.offer}
@@ -200,19 +150,38 @@ export default function Coffee() {
     )
   }
 
+  if (loading) {
+    return (
+      <AnimatedPage className="bg-white" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </AnimatedPage>
+    )
+  }
+
   return (
     <AnimatedPage className="bg-white" style={{ minHeight: '100vh', paddingBottom: '80px', overflow: 'visible' }}>
       {/* Banner Section with Back Button and Location */}
       <div className="relative w-full overflow-hidden">
         {/* Background with coffee banner */}
-        <div className="relative w-full z-0">
-          <img
-            src={coffeeBanner}
-            alt="Coffee"
-            className="w-full h-auto object-contain"
-            style={{ display: 'block' }}
-          />
-        </div>
+        {bannerImage ? (
+          <div className="relative w-full z-0">
+            <img
+              src={bannerImage}
+              alt={categoryTitle || "Coffee"}
+              className="w-full h-auto object-contain"
+              style={{ display: 'block' }}
+              onError={(e) => {
+                e.target.style.display = 'none'
+              }}
+            />
+          </div>
+        ) : (
+          <div className="relative w-full z-0 bg-gray-200 h-64 flex items-center justify-center">
+            <ImageIcon className="w-16 h-16 text-gray-400" />
+          </div>
+        )}
 
         {/* Navbar with Back Button - Overlay on top of image */}
         <nav className="absolute top-0 left-0 right-0 z-20 w-full px-3 sm:px-6 lg:px-8 py-3 sm:py-4 backdrop-blur-sm">
@@ -248,18 +217,34 @@ export default function Coffee() {
       <div className="px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
         <div className="max-w-4xl mx-auto">
           {/* Header Section */}
-          <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-            Starbucks Coffee
-          </h1>
-          <p className="text-sm sm:text-base text-gray-500">
-            Cafe, Coffee, Beverages
-          </p>
-          <div className="h-px bg-gray-200 mt-4"></div>
-        </div>
+          {(categoryTitle || categoryDescription) && (
+            <div className="mb-6">
+              {categoryTitle && (
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                  {categoryTitle}
+                </h1>
+              )}
+              {categoryDescription && (
+                <p className="text-sm sm:text-base text-gray-500">
+                  {categoryDescription}
+                </p>
+              )}
+              <div className="h-px bg-gray-200 mt-4"></div>
+            </div>
+          )}
 
           {/* Multiple Store Lists */}
-          {renderStoreList(starbucksStores, "DINING OUTLETS NEAR YOU")}
+          {storeSections.length > 0 ? (
+            storeSections.map((section, index) => (
+              <div key={section.id || index}>
+                {renderStoreList(section.stores || [], section.title || "")}
+              </div>
+            ))
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-gray-600">No stores available.</p>
+            </div>
+          )}
         </div>
       </div>
     </AnimatedPage>

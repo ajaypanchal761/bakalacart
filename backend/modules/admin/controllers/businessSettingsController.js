@@ -14,7 +14,7 @@ export const getBusinessSettingsPublic = asyncHandler(async (req, res) => {
     
     // Return only public-facing data with defaults if not set
     return successResponse(res, 200, 'Business settings retrieved successfully', {
-      companyName: settings?.companyName || 'Appzeto Food',
+      companyName: settings?.companyName || 'Bakala Cart',
       logo: settings?.logo || { url: '', publicId: '' },
       favicon: settings?.favicon || { url: '', publicId: '' },
     });
@@ -22,7 +22,7 @@ export const getBusinessSettingsPublic = asyncHandler(async (req, res) => {
     console.error('Error fetching public business settings:', error);
     // Return default values instead of error
     return successResponse(res, 200, 'Business settings retrieved successfully', {
-      companyName: 'Appzeto Food',
+      companyName: 'Bakala Cart',
       logo: { url: '', publicId: '' },
       favicon: { url: '', publicId: '' },
     });

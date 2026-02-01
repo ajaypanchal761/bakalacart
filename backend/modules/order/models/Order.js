@@ -267,6 +267,18 @@ const orderSchema = new mongoose.Schema({
     deliveryPartnerId: String,
     assignedAt: Date
   },
+  // Track delivery partners who denied/rejected this order
+  deniedDeliveryPartners: [{
+    deliveryPartnerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Delivery'
+    },
+    deniedAt: {
+      type: Date,
+      default: Date.now
+    },
+    reason: String
+  }],
   deliveryState: {
     status: {
       type: String,

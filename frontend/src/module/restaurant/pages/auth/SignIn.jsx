@@ -77,7 +77,7 @@ export default function RestaurantSignIn() {
             <h1 className="text-3xl xl:text-4xl font-extrabold mb-4 tracking-wide leading-tight">
               WELCOME TO
               <br />
-              APPZETO FOOD
+              Bakala Cart
             </h1>
             <p className="text-base xl:text-lg opacity-95 max-w-xl">
               Manage your restaurant, orders and website easily from a single dashboard.
@@ -99,7 +99,7 @@ export default function RestaurantSignIn() {
             </div>
             <div className="flex flex-col items-start">
               <span className="text-2xl font-bold tracking-wide text-primary-orange">
-                Appzeto Food
+                Bakala Cart
               </span>
               <span className="text-xs font-medium text-gray-500">
                 Restaurant Panel

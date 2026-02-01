@@ -1830,3 +1830,351 @@ export const processRefund = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * Get orders for assignment (showing restaurant acceptance status)
+ * GET /api/admin/orders/for-assignment
+ * Query params: page, limit, search, restaurantAccepted (true/false)
+ */
+export const getOrdersForAssignment = asyncHandler(async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 50,
+      search,
+      restaurantAccepted
+    } = req.query;
+
+    // Build query - get orders that are not cancelled (show all orders including assigned ones)
+    const query = {
+      status: { $nin: ['cancelled', 'delivered'] }
+    };
+
+    // Filter by restaurant acceptance status
+    // 'preparing' status means restaurant has accepted
+    if (restaurantAccepted === 'true') {
+      query.status = 'preparing';
+    } else if (restaurantAccepted === 'false') {
+      query.status = { $in: ['pending', 'confirmed'] };
+    }
+
+    // Search filter
+    if (search) {
+      const searchOrConditions = [
+        { orderId: { $regex: search, $options: 'i' } }
+      ];
+
+      // If search looks like a phone number, search in customer data
+      const phoneRegex = /[\d\s\+\-()]+/;
+      if (phoneRegex.test(search)) {
+        const User = (await import('../../auth/models/User.js')).default;
+        const cleanSearch = search.replace(/\D/g, '');
+        const userSearchQuery = { phone: { $regex: cleanSearch, $options: 'i' } };
+        if (mongoose.Types.ObjectId.isValid(search)) {
+          userSearchQuery._id = search;
+        }
+        const users = await User.find(userSearchQuery).select('_id').lean();
+        const userIds = users.map(u => u._id);
+        if (userIds.length > 0) {
+          searchOrConditions.push({ userId: { $in: userIds } });
+        }
+      }
+
+      // Also search by customer name
+      const User = (await import('../../auth/models/User.js')).default;
+      const usersByName = await User.find({
+        name: { $regex: search, $options: 'i' }
+      }).select('_id').lean();
+      const userIdsByName = usersByName.map(u => u._id);
+      if (userIdsByName.length > 0) {
+        searchOrConditions.push({ userId: { $in: userIdsByName } });
+      }
+
+      if (searchOrConditions.length > 0) {
+        query.$and = query.$and || [];
+        query.$and.push({ $or: searchOrConditions });
+      }
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Fetch orders with population
+    const orders = await Order.find(query)
+      .populate('userId', 'name email phone')
+      .populate('restaurantId', 'name slug')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .lean();
+
+    // Get total count
+    const total = await Order.countDocuments(query);
+
+    // Transform orders
+    const transformedOrders = orders.map((order, index) => {
+      const orderDate = new Date(order.createdAt);
+      const dateStr = orderDate.toLocaleDateString('en-GB', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric' 
+      }).toUpperCase();
+      const timeStr = orderDate.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      }).toUpperCase();
+
+      // Check if restaurant has accepted (status is 'preparing')
+      const isRestaurantAccepted = order.status === 'preparing';
+
+      // Check delivery boy acceptance status
+      const deliveryStateStatus = order.deliveryState?.status || 'pending';
+      const isDeliveryBoyAccepted = deliveryStateStatus === 'accepted';
+      const isDeliveryBoyPending = order.deliveryPartnerId && deliveryStateStatus === 'pending';
+      
+      // If delivery boy hasn't accepted and it's been assigned, allow reassignment
+      const canReassign = isDeliveryBoyPending;
+
+      return {
+        id: order._id.toString(),
+        orderId: order.orderId,
+        sl: skip + index + 1,
+        date: dateStr,
+        time: timeStr,
+        customerName: order.userId?.name || 'Unknown',
+        customerPhone: order.userId?.phone || '',
+        customerEmail: order.userId?.email || '',
+        restaurant: order.restaurantName || order.restaurantId?.name || 'Unknown Restaurant',
+        restaurantId: order.restaurantId?._id?.toString() || order.restaurantId?.toString() || order.restaurantId || '',
+        totalAmount: order.pricing?.total || 0,
+        orderStatus: order.status,
+        restaurantAccepted: isRestaurantAccepted,
+        items: order.items || [],
+        address: order.address || {},
+        deliveryPartnerId: order.deliveryPartnerId?.toString() || null,
+        isAssigned: !!order.deliveryPartnerId,
+        deliveryStateStatus: deliveryStateStatus,
+        isDeliveryBoyAccepted: isDeliveryBoyAccepted,
+        isDeliveryBoyPending: isDeliveryBoyPending,
+        canReassign: canReassign,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt
+      };
+    });
+
+    return successResponse(res, 200, 'Orders for assignment retrieved successfully', {
+      orders: transformedOrders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching orders for assignment:', error);
+    return errorResponse(res, 500, 'Failed to fetch orders for assignment');
+  }
+});
+
+/**
+ * Assign order to delivery boy
+ * POST /api/admin/orders/:orderId/assign
+ */
+export const assignOrderToDeliveryBoy = asyncHandler(async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { deliveryBoyId } = req.body;
+
+    console.log('📦 Assigning order:', { orderId, deliveryBoyId });
+
+    if (!deliveryBoyId) {
+      return errorResponse(res, 400, 'Delivery boy ID is required');
+    }
+
+    // Validate deliveryBoyId format
+    if (!mongoose.Types.ObjectId.isValid(deliveryBoyId)) {
+      return errorResponse(res, 400, 'Invalid delivery boy ID format');
+    }
+
+    // Find order
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findById(orderId);
+    }
+    if (!order) {
+      order = await Order.findOne({ orderId: orderId });
+    }
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    // Check if order already has delivery partner
+    // Allow reassignment if delivery boy hasn't accepted (status is still 'pending')
+    const deliveryStateStatus = order.deliveryState?.status || 'pending';
+    const canReassign = order.deliveryPartnerId && deliveryStateStatus === 'pending';
+    
+    if (order.deliveryPartnerId && !canReassign) {
+      return errorResponse(res, 400, 'Order already has a delivery partner assigned and accepted. Cannot reassign.');
+    }
+    
+    // If reassigning, clear the old assignment and denied list first
+    if (canReassign) {
+      console.log(`🔄 Reassigning order ${order.orderId} from delivery partner ${order.deliveryPartnerId} to ${deliveryBoyId}`);
+      order.deliveryPartnerId = null;
+      order.deliveryState = {
+        status: 'pending',
+        currentPhase: 'assigned'
+      };
+      // Clear denied list when reassigning so the new delivery boy can be notified
+      order.deniedDeliveryPartners = [];
+      console.log(`🔄 Cleared denied delivery partners list for reassignment`);
+    }
+
+    // Check if order is cancelled or delivered
+    if (order.status === 'cancelled' || order.status === 'delivered') {
+      return errorResponse(res, 400, 'Cannot assign delivery boy to cancelled or delivered order');
+    }
+
+    // Find delivery boy
+    const Delivery = (await import('../../delivery/models/Delivery.js')).default;
+    const deliveryBoy = await Delivery.findById(deliveryBoyId);
+
+    if (!deliveryBoy) {
+      return errorResponse(res, 404, 'Delivery boy not found');
+    }
+
+    // Check if delivery boy is active and approved
+    if (deliveryBoy.status !== 'approved' && deliveryBoy.status !== 'active') {
+      return errorResponse(res, 400, 'Delivery boy is not approved or active');
+    }
+
+    if (!deliveryBoy.isActive) {
+      return errorResponse(res, 400, 'Delivery boy is not active');
+    }
+
+    // Assign delivery boy to order (Mongoose will handle ObjectId conversion)
+    order.deliveryPartnerId = deliveryBoyId;
+    order.assignmentInfo = {
+      ...(order.assignmentInfo || {}),
+      assignedBy: 'manual', // Enum value: 'zone_match', 'nearest_distance', 'manual', 'nearest_available', 'delivery_accept'
+      assignedAt: new Date(),
+      assignmentMethod: 'admin_manual',
+      assignedByAdmin: req.user?._id?.toString() || req.admin?._id?.toString() || null // Store admin ID separately if needed
+    };
+    
+    try {
+      await order.save();
+      console.log(`✅ Order ${order.orderId} assigned to delivery boy ${deliveryBoyId}`);
+    } catch (saveError) {
+      console.error('Error saving order:', saveError);
+      return errorResponse(res, 500, `Failed to save order: ${saveError.message}`);
+    }
+
+    // Notify delivery boy about the assigned order (non-blocking)
+    // This runs asynchronously and won't block the response
+    (async () => {
+      try {
+        const { notifyDeliveryBoyNewOrder } = await import('../../order/services/deliveryNotificationService.js');
+        // Get order with populated user (restaurantId is a string, not ObjectId, so don't populate it)
+        const populatedOrder = await Order.findById(order._id)
+          .populate('userId', 'name phone')
+          .lean();
+
+        // Add restaurant info manually since restaurantId is a string
+        if (populatedOrder && populatedOrder.restaurantId) {
+          try {
+            const Restaurant = (await import('../../restaurant/models/Restaurant.js')).default;
+            const restaurant = await Restaurant.findById(populatedOrder.restaurantId)
+              .select('name address location.address location.formattedAddress location.coordinates phone ownerPhone')
+              .lean();
+            if (restaurant) {
+              // Set restaurant data properly
+              populatedOrder.restaurantId = restaurant;
+              populatedOrder.restaurantName = restaurant.name || populatedOrder.restaurantName;
+              populatedOrder.restaurantAddress = restaurant.location?.formattedAddress || 
+                                                 restaurant.location?.address || 
+                                                 restaurant.address || 
+                                                 'Restaurant address';
+              // Ensure restaurant location is properly set for notification service
+              if (restaurant.location && !restaurant.location.coordinates && restaurant.location.latitude && restaurant.location.longitude) {
+                restaurant.location.coordinates = [restaurant.location.longitude, restaurant.location.latitude];
+              }
+              console.log('📍 Restaurant data for notification:', {
+                name: restaurant.name,
+                address: populatedOrder.restaurantAddress,
+                hasLocation: !!restaurant.location,
+                coordinates: restaurant.location?.coordinates
+              });
+            }
+          } catch (restaurantError) {
+            console.error('Error fetching restaurant for notification:', restaurantError);
+            // Continue without restaurant data
+          }
+        }
+
+        if (populatedOrder) {
+          await notifyDeliveryBoyNewOrder(populatedOrder, deliveryBoyId);
+          console.log(`✅ Notified delivery boy ${deliveryBoyId} about assigned order ${order.orderId}`);
+        }
+      } catch (notifError) {
+        console.error('Error notifying delivery boy:', notifError);
+        console.error('Notification error stack:', notifError.stack);
+        // Don't fail the assignment if notification fails
+      }
+    })();
+
+    return successResponse(res, 200, 'Order assigned to delivery boy successfully', {
+      order: {
+        _id: order._id.toString(),
+        orderId: order.orderId,
+        deliveryPartnerId: order.deliveryPartnerId.toString()
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error assigning order to delivery boy:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    if (error.errors) {
+      console.error('Validation errors:', error.errors);
+    }
+    return errorResponse(res, 500, `Failed to assign order to delivery boy: ${error.message || 'Unknown error'}`);
+  }
+});
+
+/**
+ * Get all delivery boys for assignment dropdown
+ * GET /api/admin/delivery-boys/for-assignment
+ */
+export const getDeliveryBoysForAssignment = asyncHandler(async (req, res) => {
+  try {
+    const Delivery = (await import('../../delivery/models/Delivery.js')).default;
+
+    // Get all approved and active delivery boys
+    const deliveryBoys = await Delivery.find({
+      status: { $in: ['approved', 'active'] },
+      isActive: true
+    })
+      .select('_id name phone availability.isOnline')
+      .sort({ name: 1 })
+      .lean();
+
+    // Transform for dropdown
+    const transformedDeliveryBoys = deliveryBoys.map(db => ({
+      _id: db._id.toString(),
+      id: db._id.toString(),
+      name: db.name,
+      phone: db.phone,
+      isOnline: db.availability?.isOnline || false
+    }));
+
+    return successResponse(res, 200, 'Delivery boys retrieved successfully', {
+      deliveryBoys: transformedDeliveryBoys
+    });
+  } catch (error) {
+    console.error('Error fetching delivery boys for assignment:', error);
+    return errorResponse(res, 500, 'Failed to fetch delivery boys');
+  }
+});

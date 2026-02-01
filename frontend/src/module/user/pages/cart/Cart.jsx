@@ -1065,7 +1065,7 @@ export default function Cart() {
         amount: razorpay.amount, // Already in paise from backend
         currency: razorpay.currency || 'INR',
         order_id: razorpay.orderId,
-        name: "Appzeto Food",
+        name: "Bakala Cart",
         description: `Order ${order.orderId} - ₹${(razorpay.amount / 100).toFixed(2)}`,
         prefill: {
           name: userName,
@@ -1143,7 +1143,7 @@ export default function Cart() {
           `2. Backend is accessible at ${backendUrl}\n` +
           `3. Check browser console (F12) for more details\n\n` +
           `If backend is not running, start it with:\n` +
-          `cd appzetofood/backend && npm start`
+          `cd bakalacart/backend && npm start`
         
         console.error("🔴 Network Error Details:", {
           code: error.code,

@@ -26,7 +26,7 @@ class SMSHubService {
    * Generate OTP message
    */
   generateOTPMessage(otp) {
-    return `Your Appzeto Food OTP is ${otp}. Valid for 5 minutes. Do not share this OTP with anyone.`;
+    return `Your Bakala Cart OTP is ${otp}. Valid for 5 minutes. Do not share this OTP with anyone.`;
   }
 
   /**

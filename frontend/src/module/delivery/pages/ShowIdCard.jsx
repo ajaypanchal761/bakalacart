@@ -152,7 +152,7 @@ export default function ShowIdCard() {
         {/* Content - Centered */}
         <div className="flex flex-col items-center px-4 py-4">
           {/* Brand Name */}
-          <p className="text-sm text-gray-400 mb-2">appzeto</p>
+          <p className="text-sm text-gray-400 mb-2">Bakala Cart</p>
 
           {/* Delivery Partner Title */}
           <h1 className="text-3xl font-bold text-black mb-2">DELIVERY PARTNER</h1>
@@ -193,7 +193,7 @@ export default function ShowIdCard() {
           )}
 
           {/* Company Name */}
-          <p className="text-sm text-gray-500">Appzeto Limited</p>
+          <p className="text-sm text-gray-500">Bakala Cart Limited</p>
         </div>
       </div>
     </div>

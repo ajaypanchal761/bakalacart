@@ -129,30 +129,14 @@ export default function AdminNavbar({ onMenuClick }) {
     }
   }, [searchOpen]);
 
-  // Mock search results - replace with actual search logic
-  const searchResults = [
-    { type: "Order", title: "Order #12345", description: "Pending delivery", icon: Package },
-    { type: "User", title: "Sumit Jaiswal", description: "Customer profile", icon: Users },
-    { type: "Product", title: "Chicken Biryani", description: "Food item", icon: UtensilsCrossed },
-    { type: "Report", title: "Sales Report", description: "Monthly analytics", icon: FileText },
-  ].filter((item) =>
-    searchQuery.trim() === "" ||
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Search results - replace with actual search API call
+  const searchResults = []
 
-  // Mock data for dropdowns
-  const messages = [
-    { id: 1, sender: "Sarah Johnson", message: "Order #12345 needs attention", time: "2m ago", unread: true },
-    { id: 2, sender: "Mike Chen", message: "New restaurant registration", time: "15m ago", unread: true },
-    { id: 3, sender: "Emma Wilson", message: "Payment issue resolved", time: "1h ago", unread: false },
-  ];
+  // Messages - replace with actual API data
+  const messages = []
 
-  const emails = [
-    { id: 1, subject: "Weekly Report Ready", from: "reports@appzeto.com", time: "5m ago", unread: true },
-    { id: 2, subject: "New Order Notification", from: "orders@appzeto.com", time: "1h ago", unread: true },
-    { id: 3, subject: "System Update", from: "admin@appzeto.com", time: "2h ago", unread: false },
-  ];
+  // Emails - replace with actual API data
+  const emails = []
 
   // Handle logout
   const handleLogout = async () => {
@@ -229,7 +213,7 @@ export default function AdminNavbar({ onMenuClick }) {
                       {businessSettings.companyName}
                     </span>
                   ) : (
-                    <img src={appzetoLogo} alt="Appzeto" className="w-24 h-10 object-contain" loading="lazy" />
+                    <img src={appzetoLogo} alt="Bakala" className="w-24 h-10 object-contain" loading="lazy" />
                   )
                 )}
               </div>

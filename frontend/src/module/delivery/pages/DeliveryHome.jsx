@@ -63,78 +63,8 @@ import bikeLogo from "../../../assets/bikelogo.png"
 
 // Ola Maps API Key removed
 
-// Mock restaurants data
-const mockRestaurants = [
-  {
-    id: 1,
-    name: "Hotel Pankaj",
-    address: "Opposite Midway, Behror Locality, Behror",
-    lat: 28.2849,
-    lng: 76.1209,
-    distance: "3.56 km",
-    timeAway: "4 mins",
-    orders: 2,
-    estimatedEarnings: 76.62, // Consistent payment amount
-    pickupDistance: "3.56 km",
-    dropDistance: "12.2 km",
-    payment: "COD",
-    amount: 76.62, // Payment amount (consistent with estimatedEarnings)
-    items: 2,
-    phone: "+911234567890",
-    orderId: "ORD1234567890",
-    customerName: "Rajesh Kumar",
-    customerAddress: "401, 4th Floor, Pushparatna Solitare Building, Janjeerwala Square, New Palasia, Indore",
-    customerPhone: "+919876543210",
-    tripTime: "38 mins",
-    tripDistance: "8.8 kms"
-  },
-  {
-    id: 2,
-    name: "Haldi",
-    address: "B 2, Narnor-Alwar Rd, Indus Valley, Behror",
-    lat: 28.2780,
-    lng: 76.1150,
-    distance: "4.2 km",
-    timeAway: "4 mins",
-    orders: 1,
-    estimatedEarnings: 76.62,
-    pickupDistance: "4.2 km",
-    dropDistance: "8.5 km",
-    payment: "COD",
-    amount: 76.62,
-    items: 3,
-    phone: "+911234567891",
-    orderId: "ORD1234567891",
-    customerName: "Priya Sharma",
-    customerAddress: "Flat 302, Green Valley Apartments, MG Road, Indore",
-    customerPhone: "+919876543211",
-    tripTime: "35 mins",
-    tripDistance: "7.5 kms"
-  },
-  {
-    id: 3,
-    name: "Pandit Ji Samose Wale",
-    address: "Near Govt. Senior Secondary School, Behror Locality, Behror",
-    lat: 28.2870,
-    lng: 76.1250,
-    distance: "5.04 km",
-    timeAway: "6 mins",
-    orders: 1,
-    estimatedEarnings: 76.62,
-    pickupDistance: "5.04 km",
-    dropDistance: "7.8 km",
-    payment: "COD",
-    amount: 76.62,
-    items: 1,
-    phone: "+911234567892",
-    orderId: "ORD1234567892",
-    customerName: "Amit Patel",
-    customerAddress: "House No. 45, Sector 5, Vijay Nagar, Indore",
-    customerPhone: "+919876543212",
-    tripTime: "32 mins",
-    tripDistance: "6.9 kms"
-  }
-]
+// Mock data removed - using API/Socket data only
+const mockRestaurants = []
 
 // ============================================
 // STABLE TRACKING SYSTEM - RAPIDO/UBER STYLE
@@ -1406,19 +1336,37 @@ export default function DeliveryHome() {
     setShowRejectPopup(true)
   }
 
-  const handleRejectConfirm = () => {    
-    if (alertAudioRef.current) {
-      alertAudioRef.current.pause()
-      alertAudioRef.current.currentTime = 0
+  const handleRejectConfirm = async () => {
+    if (!newOrder?.orderId && !selectedRestaurant?.orderId) {
+      toast.error("Order ID not found")
+      return
     }
-    setShowRejectPopup(false)
-    setShowNewOrderPopup(false)
-    setIsNewOrderPopupMinimized(false) // Reset minimized state
-    setNewOrderDragY(0) // Reset drag position
-    setRejectReason("")
-    setCountdownSeconds(300)
-    // Here you would typically send the rejection to your backend
-    console.log("Order rejected with reason:", rejectReason)
+
+    const orderId = newOrder?.orderId || selectedRestaurant?.orderId
+
+    try {
+      // Call deny API
+      await deliveryAPI.denyOrder(orderId, rejectReason || "No reason provided")
+      
+      if (alertAudioRef.current) {
+        alertAudioRef.current.pause()
+        alertAudioRef.current.currentTime = 0
+      }
+      setShowRejectPopup(false)
+      setShowNewOrderPopup(false)
+      setIsNewOrderPopupMinimized(false) // Reset minimized state
+      setNewOrderDragY(0) // Reset drag position
+      setRejectReason("")
+      setCountdownSeconds(300)
+      clearNewOrder() // Use clearNewOrder from hook
+      setSelectedRestaurant(null)
+      
+      toast.success("Order denied successfully")
+      console.log("Order rejected with reason:", rejectReason)
+    } catch (error) {
+      console.error("Error denying order:", error)
+      toast.error(error.response?.data?.message || "Failed to deny order")
+    }
   }
 
   const handleRejectCancel = () => {
@@ -2206,9 +2154,36 @@ export default function DeliveryHome() {
             let restaurantInfo = null;
             if (order) {
               // Extract restaurant location (GeoJSON format: [longitude, latitude])
+              // Try multiple sources for restaurant location
+              let restaurantLat = null;
+              let restaurantLng = null;
+              
+              // Priority 1: From order.restaurantId.location.coordinates
               const restaurantCoords = order.restaurantId?.location?.coordinates || []
-              const restaurantLat = restaurantCoords[1] // Latitude is second element
-              const restaurantLng = restaurantCoords[0] // Longitude is first element
+              if (restaurantCoords.length >= 2) {
+                restaurantLat = restaurantCoords[1] // Latitude is second element
+                restaurantLng = restaurantCoords[0] // Longitude is first element
+              }
+              
+              // Priority 2: From newOrder.restaurantLocation (if available from notification)
+              if ((!restaurantLat || !restaurantLng) && newOrder?.restaurantLocation) {
+                restaurantLat = newOrder.restaurantLocation.latitude || restaurantLat;
+                restaurantLng = newOrder.restaurantLocation.longitude || restaurantLng;
+              }
+              
+              // Priority 3: From selectedRestaurant (if available)
+              if ((!restaurantLat || !restaurantLng) && selectedRestaurant) {
+                restaurantLat = selectedRestaurant.lat || restaurantLat;
+                restaurantLng = selectedRestaurant.lng || restaurantLng;
+              }
+              
+              console.log('📍 Restaurant location extracted:', {
+                lat: restaurantLat,
+                lng: restaurantLng,
+                fromOrder: !!order.restaurantId?.location?.coordinates,
+                fromNewOrder: !!newOrder?.restaurantLocation,
+                fromSelectedRestaurant: !!selectedRestaurant?.lat
+              });
               
               // Format restaurant address - check multiple possible locations
               let restaurantAddress = 'Restaurant Address'
@@ -2453,13 +2428,13 @@ export default function DeliveryHome() {
             if (restaurantInfo && restaurantInfo.lat && restaurantInfo.lng && currentLocation) {
               console.log('🗺️ Calculating route with Google Maps Directions API...');
               console.log('📍 From (Delivery Boy Live Location):', currentLocation);
-              console.log('📍 To (Restaurant):', { lat: restaurantInfo.lat, lng: restaurantInfo.lng });
+              console.log('📍 To (Restaurant):', { lat: finalRestaurantLat, lng: finalRestaurantLng });
               
               try {
                 // Calculate route immediately with current live location
                 const directionsResult = await calculateRouteWithDirectionsAPI(
                   currentLocation, // Delivery boy's current live location
-                  { lat: restaurantInfo.lat, lng: restaurantInfo.lng } // Restaurant location
+                  { lat: finalRestaurantLat, lng: finalRestaurantLng } // Restaurant location
                 );
                 
                 if (directionsResult) {
@@ -2512,7 +2487,7 @@ export default function DeliveryHome() {
                         console.log('✅ Route calculated with OSRM:', routeCoordinates.length, 'points');
                       } else {
                         // Final fallback: straight line
-                        routeCoordinates = [currentLocation, [restaurantInfo.lat, restaurantInfo.lng]];
+                        routeCoordinates = [currentLocation, [finalRestaurantLat, finalRestaurantLng]];
                         setRoutePolyline(routeCoordinates);
                         console.log('⚠️ Using straight line as fallback');
                       }
@@ -2536,7 +2511,7 @@ export default function DeliveryHome() {
                 if (!routeCoordinates || routeCoordinates.length === 0) {
                   try {
                     // Try OSRM first
-                    const url = `https://router.project-osrm.org/route/v1/driving/${currentLocation[1]},${currentLocation[0]};${restaurantInfo.lng},${restaurantInfo.lat}?overview=full&geometries=geojson`;
+                    const url = `https://router.project-osrm.org/route/v1/driving/${currentLocation[1]},${currentLocation[0]};${finalRestaurantLng},${finalRestaurantLat}?overview=full&geometries=geojson`;
                     const osrmResponse = await fetch(url);
                     const osrmData = await osrmResponse.json();
                     
@@ -3981,7 +3956,7 @@ export default function DeliveryHome() {
       // Navigate to pickup directions page after animation
       setTimeout(() => {
         navigate("/delivery/pickup-directions", {
-          state: { restaurants: mockRestaurants },
+          state: { restaurants: [] },
           replace: false
         })
 
@@ -4178,9 +4153,15 @@ export default function DeliveryHome() {
       });
 
       // Calculate pickup distance if not provided
-      let pickupDistance = newOrder.pickupDistance;
-      if (!pickupDistance || pickupDistance === '0 km') {
-        // Try to calculate from driver's current location to restaurant
+      let pickupDistance = newOrder.pickupDistance || newOrder.pickupDistanceRaw;
+      
+      // If distance is a number, format it
+      if (typeof pickupDistance === 'number') {
+        pickupDistance = `${pickupDistance.toFixed(2)} km`;
+      }
+      
+      // If still no distance, try to calculate from driver's current location to restaurant
+      if (!pickupDistance || pickupDistance === '0 km' || pickupDistance === 'null' || pickupDistance === 'Distance not available') {
         const currentLocation = riderLocation || lastLocationRef.current;
         const restaurantLat = newOrder.restaurantLocation?.latitude;
         const restaurantLng = newOrder.restaurantLocation?.longitude;
@@ -4198,12 +4179,42 @@ export default function DeliveryHome() {
           const distanceInKm = distanceInMeters / 1000;
           pickupDistance = `${distanceInKm.toFixed(2)} km`;
           console.log('📍 Calculated pickup distance:', pickupDistance);
+        } else {
+          pickupDistance = 'Calculating...';
         }
       }
       
-      // Default to 'Calculating...' if still no distance
-      if (!pickupDistance || pickupDistance === '0 km') {
-        pickupDistance = 'Calculating...';
+      // Calculate drop distance if not provided
+      let dropDistance = newOrder.deliveryDistance || newOrder.deliveryDistanceRaw;
+      
+      // If distance is a number, format it
+      if (typeof dropDistance === 'number') {
+        dropDistance = `${dropDistance.toFixed(2)} km`;
+      }
+      
+      // If still no distance, try to calculate from restaurant to customer
+      if (!dropDistance || dropDistance === '0 km' || dropDistance === 'null' || dropDistance === 'Calculating...') {
+        const restaurantLat = newOrder.restaurantLocation?.latitude;
+        const restaurantLng = newOrder.restaurantLocation?.longitude;
+        const customerLat = newOrder.customerLocation?.latitude;
+        const customerLng = newOrder.customerLocation?.longitude;
+        
+        if (restaurantLat && restaurantLng && customerLat && customerLng &&
+            !isNaN(restaurantLat) && !isNaN(restaurantLng) && 
+            !isNaN(customerLat) && !isNaN(customerLng)) {
+          // Calculate distance in meters, then convert to km
+          const distanceInMeters = calculateDistance(
+            restaurantLat, 
+            restaurantLng, 
+            customerLat, 
+            customerLng
+          );
+          const distanceInKm = distanceInMeters / 1000;
+          dropDistance = `${distanceInKm.toFixed(2)} km`;
+          console.log('📍 Calculated drop distance:', dropDistance);
+        } else {
+          dropDistance = 'Calculating...';
+        }
       }
 
       const restaurantData = {
@@ -4215,17 +4226,24 @@ export default function DeliveryHome() {
         lng: newOrder.restaurantLocation?.longitude,
         distance: pickupDistance,
         timeAway: pickupDistance !== 'Calculating...' ? calculateTimeAway(pickupDistance) : 'Calculating...',
-        dropDistance: newOrder.deliveryDistance || 'Calculating...',
+        dropDistance: dropDistance,
         pickupDistance: pickupDistance,
         estimatedEarnings: effectiveEarnings,
         deliveryFee,
         amount: earnedValue > 0 ? earnedValue : (deliveryFee > 0 ? deliveryFee : 0),
         customerName: newOrder.customerName,
+        customerPhone: newOrder.customerPhone,
         customerAddress: newOrder.customerLocation?.address || 'Customer address',
         customerLat: newOrder.customerLocation?.latitude,
         customerLng: newOrder.customerLocation?.longitude,
         items: newOrder.items || [],
-        total: newOrder.total || 0
+        total: newOrder.total || newOrder.orderTotal || 0,
+        paymentMethod: newOrder.paymentMethod || 'razorpay',
+        restaurantPhone: newOrder.restaurantPhone,
+        ownerPhone: newOrder.restaurantOwnerPhone,
+        estimatedPickupTime: newOrder.estimatedPickupTime,
+        estimatedDeliveryTimeMinutes: newOrder.estimatedDeliveryTimeMinutes,
+        note: newOrder.note || ''
       }
       
       setSelectedRestaurant(restaurantData)
@@ -4386,7 +4404,7 @@ export default function DeliveryHome() {
     {
       id: "idCard",
       title: "Show ID card",
-      subtitle: "See your Appzeto ID card",
+      subtitle: "See your Bakala Cart ID card",
       icon: "idCard",
       path: "/delivery/help/id-card"
     }
@@ -9294,73 +9312,48 @@ export default function DeliveryHome() {
               {/* White Content Card */}
               <div className="bg-white rounded-t-3xl">
                 <div className="p-6">
-                  {/* Estimated Earnings */}
+                  {/* New Order Amount */}
 
                   <div className="mb-5">
-                    <p className="text-gray-500 text-sm mb-1">Estimated earnings</p>
+                    <p className="text-gray-500 text-sm mb-1">New Order of</p>
                     <p className="text-4xl font-bold text-gray-900 mb-2">
                       ₹{(() => {
-                        const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                        const fallback = newOrder?.deliveryFee ?? selectedRestaurant?.deliveryFee ?? selectedRestaurant?.amount ?? 0;
-                        let value = 0;
-                        
-                        console.log('💰 Display earnings calculation:', {
-                          earnings,
-                          earningsType: typeof earnings,
-                          newOrderEarnings: newOrder?.estimatedEarnings,
-                          selectedRestaurantEarnings: selectedRestaurant?.estimatedEarnings,
-                          fallback
-                        });
-                        
-                        if (earnings) {
-                          if (typeof earnings === 'object') {
-                            // Handle earnings object
-                            if (earnings.totalEarning != null) {
-                              value = Number(earnings.totalEarning) || 0;
-                            } else if (earnings.basePayout != null) {
-                              // If only basePayout is available, use it
-                              value = Number(earnings.basePayout) || 0;
-                            }
-                          } else if (typeof earnings === 'number') {
-                            value = earnings > 0 ? earnings : 0;
-                          }
-                        }
-                        
-                        // If value is still 0, try fallback
-                        if (value <= 0 && fallback > 0) {
-                          value = Number(fallback);
-                        }
-                        
-                        console.log('💰 Final earnings value to display:', value);
-                        return value > 0 ? value.toFixed(2) : '0.00';
+                        // Show order total amount (jitte ka order tha)
+                        const orderTotal = newOrder?.total || newOrder?.orderTotal || selectedRestaurant?.total || 0;
+                        return Number(orderTotal).toFixed(2);
                       })()}
                     </p>
-                    {/* Earnings Breakdown */}
                     {(() => {
-                      const earnings = newOrder?.estimatedEarnings || selectedRestaurant?.estimatedEarnings || 0;
-                      if (typeof earnings === 'object' && earnings.breakdown) {
+                      const pickup = newOrder?.pickupDistance || 
+                                    newOrder?.pickupDistanceRaw || 
+                                    selectedRestaurant?.pickupDistance || 
+                                    selectedRestaurant?.distance;
+                      const drop = newOrder?.deliveryDistance || 
+                                  newOrder?.deliveryDistanceRaw || 
+                                  selectedRestaurant?.dropDistance;
+                      
+                      const hasValidPickup = pickup && pickup !== '0 km' && pickup !== 'Calculating...' && pickup !== 'Distance not available' && pickup !== 'null';
+                      const hasValidDrop = drop && drop !== '0 km' && drop !== 'Calculating...' && drop !== 'Distance not available' && drop !== 'null';
+                      
+                      if (hasValidPickup || hasValidDrop) {
                         return (
-                          <div className="bg-green-50 rounded-lg p-3 mb-2">
-                            <p className="text-green-800 text-xs font-medium mb-1">Earnings Breakdown:</p>
-                            <p className="text-green-700 text-xs">
-                              Base: ₹{earnings.basePayout?.toFixed(0) || '0'}
-                              {earnings.distanceCommission > 0 && (
-                                <> + Distance ({earnings.distance?.toFixed(1)} km × ₹{earnings.commissionPerKm?.toFixed(0)}/km) = ₹{earnings.distanceCommission?.toFixed(0)}</>
-                              )}
-                            </p>
-                            {earnings.distance <= earnings.minDistance && earnings.distanceCommission === 0 && (
-                              <p className="text-green-600 text-xs mt-1">
-                                Note: Distance {earnings.distance?.toFixed(1)} km ≤ {earnings.minDistance} km, per km commission not applicable
-                              </p>
+                          <p className="text-gray-400 text-xs">
+                            {hasValidPickup && (
+                              <>
+                                Pickup: {typeof pickup === 'number' ? `${pickup.toFixed(2)} km` : pickup}
+                              </>
                             )}
-                          </div>
+                            {hasValidPickup && hasValidDrop && ' | '}
+                            {hasValidDrop && (
+                              <>
+                                Drop: {typeof drop === 'number' ? `${drop.toFixed(2)} km` : drop}
+                              </>
+                            )}
+                          </p>
                         );
                       }
                       return null;
                     })()}
-                    <p className="text-gray-400 text-xs">
-                      Pickup: {newOrder?.pickupDistance || selectedRestaurant?.pickupDistance || '0 km'} | Drop: {newOrder?.deliveryDistance || selectedRestaurant?.dropDistance || '0 km'}
-                    </p>
                   </div>
 
                   {/* Order ID */}
@@ -9383,31 +9376,57 @@ export default function DeliveryHome() {
                       {newOrder?.restaurantName || selectedRestaurant?.name || 'Restaurant'}
                     </h3>
                     <p className="text-sm text-gray-600 mb-3 leading-relaxed">
-                      {newOrder?.restaurantLocation?.address || selectedRestaurant?.address || 'Address'}
+                      {(() => {
+                        // Try multiple sources for restaurant address
+                        const address = newOrder?.restaurantLocation?.address || 
+                                       newOrder?.restaurantLocation?.formattedAddress ||
+                                       newOrder?.restaurantAddress ||
+                                       selectedRestaurant?.address ||
+                                       (newOrder?.restaurantLocation && 'Restaurant location available') ||
+                                       'Restaurant address';
+                        return address && address !== 'Restaurant address' ? address : 'Restaurant address';
+                      })()}
                     </p>
                     
-                    <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-2">
-                      <Clock className="w-4 h-4" />
-                      <span>
-                        {selectedRestaurant?.timeAway && selectedRestaurant.timeAway !== 'Calculating...' 
-                          ? `${selectedRestaurant.timeAway} away`
-                          : (newOrder?.pickupDistance && newOrder.pickupDistance !== '0 km' && newOrder.pickupDistance !== 'Calculating...'
-                            ? `${calculateTimeAway(newOrder.pickupDistance)} away`
-                            : 'Calculating...')}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-1.5 text-gray-500 text-sm">
-                      <MapPin className="w-4 h-4" />
-                      <span>
-                        {selectedRestaurant?.distance && selectedRestaurant.distance !== '0 km' && selectedRestaurant.distance !== 'Calculating...'
-                          ? `${selectedRestaurant.distance} away`
-                          : (newOrder?.pickupDistance && newOrder.pickupDistance !== '0 km' && newOrder.pickupDistance !== 'Calculating...'
-                            ? `${newOrder.pickupDistance} away`
-                            : 'Calculating...')}
-                      </span>
-                    </div>
+                    {(() => {
+                      const pickup = selectedRestaurant?.pickupDistance || 
+                                    newOrder?.pickupDistance || 
+                                    newOrder?.pickupDistanceRaw ||
+                                    selectedRestaurant?.distance;
+                      const hasValidPickup = pickup && pickup !== '0 km' && pickup !== 'Calculating...' && pickup !== 'Distance not available' && pickup !== 'null';
+                      
+                      if (hasValidPickup) {
+                        const distanceStr = typeof pickup === 'number' ? `${pickup.toFixed(2)} km` : pickup;
+                        return (
+                          <>
+                            <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-2">
+                              <Clock className="w-4 h-4" />
+                              <span>{calculateTimeAway(distanceStr)} away</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5 text-gray-500 text-sm">
+                              <MapPin className="w-4 h-4" />
+                              <span>{distanceStr} away</span>
+                            </div>
+                          </>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
+
+
+                  {/* Restaurant Contact (if available) */}
+                  {(newOrder?.restaurantPhone || selectedRestaurant?.phone) && (
+                    <div className="bg-blue-50 rounded-xl p-4 mb-6">
+                      <div className="flex items-center gap-2 text-blue-800">
+                        <Phone className="w-4 h-4" />
+                        <span className="text-sm font-medium">
+                          Restaurant: {newOrder?.restaurantPhone || selectedRestaurant?.phone}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Accept Order Button with Swipe */}
                   <div className="relative w-full">
@@ -10502,9 +10521,17 @@ export default function DeliveryHome() {
                         toast.success(`₹${earnings.toFixed(2)} added to your wallet! 💰`)
                       }
                       
-                      // Close review popup and show payment page
+                      // Close review popup and clear states
                       setShowCustomerReviewPopup(false)
-                      setShowPaymentPage(true)
+                      // Clear selected restaurant/order to prevent showing popups for delivered order
+                      setSelectedRestaurant(null)
+                      // Clear active order from localStorage
+                      localStorage.removeItem('deliveryActiveOrder')
+                      // Clear all order-related popups
+                      setShowreachedPickupPopup(false)
+                      setShowOrderIdConfirmationPopup(false)
+                      setShowReachedDropPopup(false)
+                      setShowOrderDeliveredAnimation(false)
                     } else {
                       console.error('❌ Failed to submit review:', response.data)
                       toast.error(response.data?.message || 'Failed to submit review. Please try again.')
@@ -10512,14 +10539,30 @@ export default function DeliveryHome() {
                   } catch (error) {
                     console.error('❌ Error submitting review:', error)
                     toast.error('Failed to submit review. Please try again.')
-                    // Still show payment page even if review fails
+                    // Close review popup and clear states even if review fails
                     setShowCustomerReviewPopup(false)
-                    setShowPaymentPage(true)
+                    // Clear selected restaurant/order
+                    setSelectedRestaurant(null)
+                    // Clear active order from localStorage
+                    localStorage.removeItem('deliveryActiveOrder')
+                    // Clear all order-related popups
+                    setShowreachedPickupPopup(false)
+                    setShowOrderIdConfirmationPopup(false)
+                    setShowReachedDropPopup(false)
+                    setShowOrderDeliveredAnimation(false)
                   }
                 } else {
-                  // If no order ID, just show payment page
+                  // If no order ID, just close review popup and clear states
                   setShowCustomerReviewPopup(false)
-                  setShowPaymentPage(true)
+                  // Clear selected restaurant/order
+                  setSelectedRestaurant(null)
+                  // Clear active order from localStorage
+                  localStorage.removeItem('deliveryActiveOrder')
+                  // Clear all order-related popups
+                  setShowreachedPickupPopup(false)
+                  setShowOrderIdConfirmationPopup(false)
+                  setShowReachedDropPopup(false)
+                  setShowOrderDeliveredAnimation(false)
                 }
               }}
               className="w-full bg-green-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-green-700 transition-colors shadow-lg"
@@ -10530,131 +10573,6 @@ export default function DeliveryHome() {
         </div>
       </BottomPopup>
 
-      {/* Payment Page - shown after Customer Review is submitted */}
-      <AnimatePresence>
-        {showPaymentPage && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[200] bg-white overflow-y-auto"
-          >
-            {/* Header */}
-            <div className="bg-green-500 text-white px-6 py-6">
-              <h1 className="text-2xl font-bold mb-2">Payment</h1>
-              <p className="text-white/90 text-sm">Order ID: {selectedRestaurant?.orderId || 'ORD1234567890'}</p>
-            </div>
-
-            {/* Payment Amount */}
-            <div className="px-6 py-8 text-center bg-gray-50">
-              <p className="text-gray-600 text-sm mb-2">Earnings from this order</p>
-              <p className="text-5xl font-bold text-gray-900">
-                ₹{(() => {
-                  if (orderEarnings > 0) {
-                    return orderEarnings.toFixed(2);
-                  }
-                  // Handle estimatedEarnings - can be number or object
-                  const earnings = selectedRestaurant?.amount || selectedRestaurant?.estimatedEarnings || 0;
-                  if (typeof earnings === 'object' && earnings.totalEarning) {
-                    return earnings.totalEarning.toFixed(2);
-                  }
-                  return typeof earnings === 'number' ? earnings.toFixed(2) : '0.00';
-                })()}
-              </p>
-              <p className="text-green-600 text-sm mt-2">💰 Added to your wallet</p>
-            </div>
-
-            {/* Payment Details */}
-            <div className="px-6 py-6 pb-6 h-full flex flex-col justify-between">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Payment Details</h3>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Trip pay</span>
-                    <span className="text-gray-900 font-semibold">₹{(() => {
-                      let earnings = 0;
-                      if (orderEarnings > 0) {
-                        earnings = orderEarnings;
-                      } else {
-                        const estEarnings = selectedRestaurant?.amount || selectedRestaurant?.estimatedEarnings || 0;
-                        if (typeof estEarnings === 'object' && estEarnings.totalEarning) {
-                          earnings = estEarnings.totalEarning;
-                        } else if (typeof estEarnings === 'number') {
-                          earnings = estEarnings;
-                        }
-                      }
-                      return (earnings - 5).toFixed(2);
-                    })()}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-gray-600">Long distance return pay</span>
-                    <span className="text-gray-900 font-semibold">₹5.00</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-lg font-bold text-gray-900">Total Earnings</span>
-                    <span className="text-lg font-bold text-gray-900">₹{(() => {
-                      if (orderEarnings > 0) {
-                        return orderEarnings.toFixed(2);
-                      }
-                      // Handle estimatedEarnings - can be number or object
-                      const earnings = selectedRestaurant?.amount || selectedRestaurant?.estimatedEarnings || 0;
-                      if (typeof earnings === 'object' && earnings.totalEarning) {
-                        return earnings.totalEarning.toFixed(2);
-                      }
-                      return typeof earnings === 'number' ? earnings.toFixed(2) : '0.00';
-                    })()}</span>
-                  </div>
-                </div>
-              </div>
-
-
-              {/* Complete Button */}
-              <button
-                onClick={() => {
-                  setShowPaymentPage(false)
-                  // CRITICAL: Clear all order-related popups and states when completing
-                  setShowreachedPickupPopup(false)
-                  setShowOrderIdConfirmationPopup(false)
-                  setShowReachedDropPopup(false)
-                  setShowOrderDeliveredAnimation(false)
-                  setShowCustomerReviewPopup(false)
-                  
-                  // Clear selected restaurant/order to prevent showing popups for delivered order
-                  setSelectedRestaurant(null)
-                  
-                  // CRITICAL: Clear active order from localStorage to prevent it from showing again
-                  localStorage.removeItem('deliveryActiveOrder')
-                  localStorage.removeItem('activeOrder')
-                  
-                  // Clear newOrder from notifications hook (if available)
-                  if (typeof clearNewOrder === 'function') {
-                    clearNewOrder()
-                  }
-                  
-                  // Clear accepted orders list when order is completed
-                  acceptedOrderIdsRef.current.clear();
-                  
-                  navigate("/delivery")
-                  // Reset states
-                  setTimeout(() => {
-                    setReachedDropButtonProgress(0)
-                    setReachedDropIsAnimatingToComplete(false)
-                    setCustomerRating(0)
-                    setCustomerReviewText("")
-                  }, 500)
-                }}
-                className="w-full sticky bottom-4 bg-black text-white py-4 rounded-xl font-semibold text-lg hover:bg-gray-800 transition-colors shadow-lg "
-              >
-                Complete
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

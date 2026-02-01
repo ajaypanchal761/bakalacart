@@ -21,7 +21,12 @@ const TEST_PHONE_NUMBERS = [
   '6375095971',
 ];
 
-// Default OTP for test phone numbers
+// Test email addresses that should use default OTP
+const TEST_EMAIL_ADDRESSES = [
+  'panchalajay717@gmail.com',
+];
+
+// Default OTP for test phone numbers and emails
 const DEFAULT_TEST_OTP = '110211';
 
 /**
@@ -50,6 +55,16 @@ const extractPhoneDigits = (phone) => {
 const isTestPhoneNumber = (phone) => {
   const phoneDigits = extractPhoneDigits(phone);
   return TEST_PHONE_NUMBERS.includes(phoneDigits);
+};
+
+/**
+ * Check if an email is a test email
+ * @param {string} email - Email address
+ * @returns {boolean} - True if email is a test email
+ */
+const isTestEmail = (email) => {
+  if (!email) return false;
+  return TEST_EMAIL_ADDRESSES.includes(email.toLowerCase().trim());
 };
 
 /**
@@ -97,8 +112,10 @@ class OTPService {
         }
       }
 
-      // Generate OTP (use default for test phone numbers)
-      const otp = (phone && isTestPhoneNumber(phone)) ? DEFAULT_TEST_OTP : generateOTP();
+      // Generate OTP (use default for test phone numbers or test emails)
+      const otp = ((phone && isTestPhoneNumber(phone)) || (email && isTestEmail(email))) 
+        ? DEFAULT_TEST_OTP 
+        : generateOTP();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
       // Build query for invalidating previous OTPs
@@ -137,8 +154,17 @@ class OTPService {
           });
         }
       } else if (email) {
-        // Keep email service as is
-        await emailService.sendOTP(email, otp, purpose);
+        // Skip actual email sending for test emails
+        if (!isTestEmail(email)) {
+          // Keep email service as is
+          await emailService.sendOTP(email, otp, purpose);
+        } else {
+          logger.info(`Skipping email for test email: ${email}`, {
+            email,
+            purpose,
+            otp
+          });
+        }
       }
 
       logger.info(`OTP generated and sent to ${identifier} (${identifierType})`, {
@@ -182,10 +208,12 @@ class OTPService {
       const identifier = phone || email;
       const identifierType = phone ? 'phone' : 'email';
 
-      // Check if this is a test phone number and OTP matches default test OTP
-      if (phone && isTestPhoneNumber(phone) && otp === DEFAULT_TEST_OTP) {
-        logger.info(`Test OTP verified for ${phone}`, {
+      // Check if this is a test phone number or test email and OTP matches default test OTP
+      if ((phone && isTestPhoneNumber(phone) && otp === DEFAULT_TEST_OTP) ||
+          (email && isTestEmail(email) && otp === DEFAULT_TEST_OTP)) {
+        logger.info(`Test OTP verified for ${phone || email}`, {
           phone,
+          email,
           purpose
         });
         return {

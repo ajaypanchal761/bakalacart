@@ -7,7 +7,6 @@ import { useCart } from "../context/CartContext"
 import { useLocationSelector } from "./UserLayout"
 import { FaLocationDot } from "react-icons/fa6"
 import { getCachedSettings, loadBusinessSettings } from "@/lib/utils/businessSettings"
-import appzetoFoodLogo from "@/assets/appzetologo.png"
 
 export default function PageNavbar({ 
   textColor = "white", 
@@ -959,26 +958,7 @@ export default function PageNavbar({
           </Button>
         </div>
 
-        {/* Center: Company Logo or Name - Show on all screen sizes */}
-        <Link to="/user" className="flex items-center justify-center">
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt="Company Logo"
-              className="h-12 w-20 mr-3 sm:h-10 sm:w-10 md:h-12 md:w-12 object-contain"
-              onError={(e) => {
-                // Fallback to default logo if API logo fails
-                e.target.src = appzetoFoodLogo
-              }}
-            />
-          ) : (
-            <img
-              src={appzetoFoodLogo}
-              alt="Appzeto Food Logo"
-              className="h-12 w-20 mr-3 sm:h-10 sm:w-10 md:h-12 md:w-12 object-contain"
-            />
-          )}
-        </Link>
+        {/* Center: Company Logo or Name - Removed */}
 
         {/* Right: Actions - Hidden on desktop, shown on mobile */}
         <div className="flex md:hidden items-center gap-2 sm:gap-3 flex-shrink-0">

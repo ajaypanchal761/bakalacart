@@ -1,13 +1,17 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Filter, UtensilsCrossed, Settings, ArrowUpDown, Star, BarChart3, FileText, FileSpreadsheet, Code } from "lucide-react"
-import { foodReportDummy, yearlySalesData } from "../../data/foodReportDummy"
+// Dummy data removed - using empty arrays and default data
+const yearlySalesData = {
+  averageYearlySales: 0,
+  chartData: []
+}
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { exportReportsToCSV, exportReportsToExcel, exportReportsToPDF, exportReportsToJSON } from "../../components/reports/reportsExportUtils"
 
 export default function FoodReport() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [foods, setFoods] = useState(foodReportDummy)
+  const [foods, setFoods] = useState([])
   const [filters, setFilters] = useState({
     zone: "All Zones",
     restaurant: "All restaurants",
@@ -99,7 +103,7 @@ export default function FoodReport() {
     return "★".repeat(fullStars) + (hasHalfStar ? "½" : "") + "☆".repeat(5 - Math.ceil(rating)) + ` (${reviews})`
   }
 
-  const maxChartValue = Math.max(...yearlySalesData.chartData.map(d => d.amount))
+  const maxChartValue = yearlySalesData.chartData.length > 0 ? Math.max(...yearlySalesData.chartData.map(d => d.amount || 0)) : 0
   const chartHeight = 200
 
   return (

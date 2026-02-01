@@ -1,16 +1,6 @@
 import { useState, useMemo } from "react"
 import { Search, Download, ChevronDown, Bell, Edit, Trash2, Upload, Settings, Image as ImageIcon } from "lucide-react"
-import { pushNotificationsDummy } from "../data/pushNotificationsDummy"
-// Using placeholders for notification images
-const notificationImage1 = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=400&fit=crop"
-const notificationImage2 = "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=800&h=400&fit=crop"
-const notificationImage3 = "https://images.unsplash.com/photo-1556910096-6f5e72db6803?w=800&h=400&fit=crop"
-
-const notificationImages = {
-  15: notificationImage1,
-  17: notificationImage2,
-  18: notificationImage3,
-}
+// Mock data removed - using API data only
 
 export default function PushNotification() {
   const [formData, setFormData] = useState({
@@ -20,7 +10,7 @@ export default function PushNotification() {
     description: "",
   })
   const [searchQuery, setSearchQuery] = useState("")
-  const [notifications, setNotifications] = useState(pushNotificationsDummy)
+  const [notifications, setNotifications] = useState([])
 
   const filteredNotifications = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -234,13 +224,16 @@ export default function PushNotification() {
                       {notification.image ? (
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100">
                           <img
-                            src={notificationImages[notification.sl] || notificationImage1}
-                            alt={notification.title}
+                            src={notification.image}
+                            alt={notification.title || "Notification"}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               e.target.style.display = "none"
+                              const icon = e.target.parentElement.querySelector('svg')
+                              if (icon) icon.style.display = 'flex'
                             }}
                           />
+                          <ImageIcon className="w-6 h-6 text-slate-400 hidden" />
                         </div>
                       ) : (
                         <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">

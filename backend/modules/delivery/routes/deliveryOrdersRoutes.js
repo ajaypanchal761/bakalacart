@@ -2,7 +2,8 @@ import express from 'express';
 import { 
   getOrders, 
   getOrderDetails, 
-  acceptOrder, 
+  acceptOrder,
+  denyOrder,
   confirmReachedPickup, 
   confirmOrderId,
   confirmReachedDrop,
@@ -20,6 +21,7 @@ router.use(authenticate);
 router.get('/orders', getOrders);
 router.get('/orders/:orderId', getOrderDetails);
 router.patch('/orders/:orderId/accept', acceptOrder);
+router.patch('/orders/:orderId/deny', denyOrder);
 router.patch('/orders/:orderId/reached-pickup', confirmReachedPickup);
 router.patch('/orders/:orderId/confirm-order-id', confirmOrderId);
 router.patch('/orders/:orderId/reached-drop', confirmReachedDrop);

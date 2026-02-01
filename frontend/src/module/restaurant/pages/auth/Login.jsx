@@ -342,7 +342,7 @@ export default function RestaurantLogin() {
             }}
           >
           
-            appzeto food
+            Bakala Cart
           </h1>
         </div>
         

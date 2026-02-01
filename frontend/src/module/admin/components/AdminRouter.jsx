@@ -8,6 +8,7 @@ import AdminSettings from "../pages/AdminSettings";
 import NewRefundRequests from "../pages/refunds/NewRefundRequests";
 import FoodApproval from "../pages/restaurant/FoodApproval";
 import OrdersPage from "../pages/orders/OrdersPage";
+import OrderAssign from "../pages/orders/OrderAssign";
 import OrderDetectDelivery from "../pages/OrderDetectDelivery";
 import Category from "../pages/categories/Category";
 import FeeSettings from "../pages/fee-settings/FeeSettings";
@@ -49,7 +50,6 @@ import Bonus from "../pages/wallet/Bonus";
 import LoyaltyPointReport from "../pages/loyalty-point/Report";
 import SubscribedMailList from "../pages/SubscribedMailList";
 // Deliveryman Management
-import DeliveryBoyCommission from "../pages/DeliveryBoyCommission";
 import DeliveryCashLimit from "../pages/DeliveryCashLimit";
 import CashLimitSettlement from "../pages/CashLimitSettlement";
 import DeliveryWithdrawal from "../pages/DeliveryWithdrawal";
@@ -115,7 +115,6 @@ import AddonActivation from "../pages/system/AddonActivation";
 // ENV Setup (formerly System Addons)
 import SystemAddons from "../pages/system/SystemAddons";
 import LandingPageManagement from "../pages/system/LandingPageManagement";
-import DiningManagement from "../pages/system/DiningManagement";
 
 export default function AdminRouter() {
   return (
@@ -141,6 +140,8 @@ export default function AdminRouter() {
         <Route path="/settings" element={<AdminSettings />} />
 
         {/* ORDER MANAGEMENT */}
+        {/* Order Assign */}
+        <Route path="order-assign" element={<OrderAssign />} />
         {/* Orders */}
         <Route path="orders/all" element={<OrdersPage statusKey="all" />} />
         <Route path="orders/scheduled" element={<OrdersPage statusKey="scheduled" />} />
@@ -215,7 +216,6 @@ export default function AdminRouter() {
         <Route path="subscribed-mail-list" element={<SubscribedMailList />} />
 
         {/* DELIVERYMAN MANAGEMENT */}
-        <Route path="delivery-boy-commission" element={<DeliveryBoyCommission />} />
         <Route path="delivery-cash-limit" element={<DeliveryCashLimit />} />
         <Route path="cash-limit-settlement" element={<CashLimitSettlement />} />
         <Route path="delivery-withdrawal" element={<DeliveryWithdrawal />} />
@@ -301,8 +301,6 @@ export default function AdminRouter() {
         <Route path="system-addons" element={<SystemAddons />} />
         {/* HERO BANNER MANAGEMENT */}
         <Route path="hero-banner-management" element={<LandingPageManagement />} />
-        {/* DINING MANAGEMENT */}
-        <Route path="dining-management" element={<DiningManagement />} />
       </Route>
 
       {/* Redirect /admin to /admin/ */}
