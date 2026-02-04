@@ -223,6 +223,7 @@ export async function notifyRestaurantOrderUpdate(orderId, status) {
     const io = await getIOInstance();
 
     if (!io) {
+      console.warn('Socket.IO not initialized, skipping restaurant order update notification');
       return;
     }
 
@@ -231,16 +232,38 @@ export async function notifyRestaurantOrderUpdate(orderId, status) {
       throw new Error('Order not found');
     }
 
+    const restaurantId = order.restaurantId?.toString() || order.restaurantId;
+    if (!restaurantId) {
+      console.error('❌ Restaurant ID not found in order:', order.orderId);
+      return;
+    }
+
     // Get restaurant namespace
     const restaurantNamespace = io.of('/restaurant');
 
-    restaurantNamespace.to(`restaurant:${order.restaurantId}`).emit('order_status_update', {
+    // Try multiple room formats to ensure we find the restaurant
+    const roomVariations = [
+      `restaurant:${restaurantId}`,
+      ...(mongoose.Types.ObjectId.isValid(restaurantId)
+        ? [`restaurant:${new mongoose.Types.ObjectId(restaurantId).toString()}`]
+        : [])
+    ];
+
+    const updateData = {
       orderId: order.orderId,
+      orderMongoId: order._id.toString(),
       status,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      acceptedByAdmin: order.acceptedByAdmin || false
+    };
+
+    // Emit to all room variations
+    roomVariations.forEach(room => {
+      restaurantNamespace.to(room).emit('order_status_update', updateData);
+      console.log(`📤 Sent order status update to room: ${room}`);
     });
 
-    console.log(`📢 Notified restaurant ${order.restaurantId} about order ${order.orderId} status: ${status}`);
+    console.log(`📢 Notified restaurant ${restaurantId} about order ${order.orderId} status: ${status}`);
   } catch (error) {
     console.error('Error notifying restaurant about order update:', error);
     throw error;

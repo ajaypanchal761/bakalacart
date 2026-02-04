@@ -509,6 +509,7 @@ export default function DeliveryOTP() {
                     disabled={isLoading}
                     autoComplete="off"
                     autoFocus={false}
+                    aria-label={`OTP digit ${index + 1} of ${otp.length}`}
                     className="w-12 h-12 text-center text-lg font-semibold p-0 border border-black rounded-md focus-visible:ring-0 focus-visible:border-black bg-white"
                   />
                 ))}

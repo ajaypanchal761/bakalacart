@@ -110,6 +110,7 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
                   value={searchValue}
                   onChange={(e) => onSearchChange(e.target.value)}
                   placeholder="Search for food, restaurants..."
+                  aria-label="Search for food and restaurants"
                   className="pl-12 pr-4 h-12 w-full bg-white dark:bg-[#1a1a1a] border-gray-100 dark:border-gray-800 focus:border-primary-orange dark:focus:border-primary-orange rounded-full text-lg dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                 />
               </div>
@@ -118,9 +119,10 @@ export default function SearchOverlay({ isOpen, onClose, searchValue, onSearchCh
                 variant="ghost"
                 size="icon"
                 onClick={onClose}
+                aria-label="Close search"
                 className="rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
               >
-                <X className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+                <X className="h-5 w-5 text-gray-700 dark:text-gray-300" aria-hidden="true" />
               </Button>
             </form>
           </div>

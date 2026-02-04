@@ -52,8 +52,15 @@ export default function OrdersPage({ statusKey = "all" }) {
         const response = await adminAPI.getOrders(params)
         
         if (response.data?.success && response.data?.data?.orders) {
-          setOrders(response.data.data.orders)
-          setTotalCount(response.data.data.pagination?.total || response.data.data.orders.length)
+          // Filter out wallet payment orders
+          const filteredOrders = response.data.data.orders.filter(order => {
+            const paymentMethod = order.payment?.method || order.paymentMethod || order.paymentType || ''
+            const paymentMethodLower = String(paymentMethod).toLowerCase().trim()
+            return paymentMethodLower !== 'wallet'
+          })
+          
+          setOrders(filteredOrders)
+          setTotalCount(filteredOrders.length)
         } else {
           console.error("Failed to fetch orders:", response.data)
           toast.error("Failed to fetch orders")
@@ -152,8 +159,14 @@ export default function OrdersPage({ statusKey = "all" }) {
         }
         const refreshResponse = await adminAPI.getOrders(params)
         if (refreshResponse.data?.success && refreshResponse.data?.data?.orders) {
-          setOrders(refreshResponse.data.data.orders)
-          setTotalCount(refreshResponse.data.data.pagination?.total || refreshResponse.data.data.orders.length)
+          // Filter out wallet payment orders
+          const filteredRefreshOrders = refreshResponse.data.data.orders.filter(order => {
+            const paymentMethod = order.payment?.method || order.paymentMethod || order.paymentType || ''
+            const paymentMethodLower = String(paymentMethod).toLowerCase().trim()
+            return paymentMethodLower !== 'wallet'
+          })
+          setOrders(filteredRefreshOrders)
+          setTotalCount(filteredRefreshOrders.length)
         }
       } else {
         toast.error(response.data?.message || "Failed to process refund")
@@ -218,6 +231,40 @@ export default function OrdersPage({ statusKey = "all" }) {
   const handleRefundConfirm = (amount) => {
     if (selectedOrderForRefund) {
       processRefund(selectedOrderForRefund, amount)
+    }
+  }
+
+  // Handle delete order
+  const handleDeleteOrder = async (order) => {
+    const orderIdToUse = order.id || order._id || order.orderId
+    
+    if (!orderIdToUse) {
+      toast.error('Order ID not found. Please refresh the page and try again.')
+      return
+    }
+
+    const confirmMessage = `Are you sure you want to delete order ${order.orderId}?\n\nThis action cannot be undone. All order data will be permanently removed.`
+    
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      const response = await adminAPI.deleteOrder(orderIdToUse)
+      
+      if (response.data?.success) {
+        toast.success(`Order ${order.orderId} deleted successfully`)
+        // Remove order from local state
+        setOrders(prevOrders => prevOrders.filter(o => 
+          o.id !== order.id && o.orderId !== order.orderId && o._id !== order._id
+        ))
+        setTotalCount(prev => prev - 1)
+      } else {
+        toast.error(response.data?.message || "Failed to delete order")
+      }
+    } catch (error) {
+      console.error("❌ Error deleting order:", error)
+      toast.error(error.response?.data?.message || "Failed to delete order. Please try again.")
     }
   }
 
@@ -304,6 +351,7 @@ export default function OrdersPage({ statusKey = "all" }) {
         onViewOrder={handleViewOrder}
         onPrintOrder={handlePrintOrder}
         onRefund={handleRefund}
+        onDeleteOrder={handleDeleteOrder}
       />
     </div>
   )

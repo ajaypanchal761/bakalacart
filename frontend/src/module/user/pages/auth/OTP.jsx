@@ -395,6 +395,7 @@ export default function OTP() {
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={index === 0 ? handlePaste : undefined}
                     disabled={isLoading}
+                    aria-label={`OTP digit ${index + 1} of ${otp.length}`}
                     className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-18 lg:h-18 text-center text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold p-0 border-2 border-black dark:border-gray-600 rounded-lg focus-visible:ring-2 focus-visible:ring-[#E23744] focus-visible:border-[#E23744] dark:focus-visible:border-[#E23744] bg-white dark:bg-[#1a1a1a] text-black dark:text-white transition-all"
                   />
                 ))}

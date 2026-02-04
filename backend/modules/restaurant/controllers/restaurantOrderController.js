@@ -213,6 +213,11 @@ export const acceptOrder = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { preparationTime } = req.body;
 
+    // Check if restaurant is accepting orders
+    if (restaurant.isAcceptingOrders === false) {
+      return errorResponse(res, 403, 'Restaurant is not accepting orders. Please enable order acceptance in settings.');
+    }
+
     const restaurantId = restaurant._id?.toString() ||
       restaurant.restaurantId ||
       restaurant.id;
@@ -242,8 +247,15 @@ export const acceptOrder = asyncHandler(async (req, res) => {
 
     // Allow accepting orders with status 'pending' or 'confirmed'
     // 'confirmed' status means payment is verified, restaurant can still accept
-    if (!['pending', 'confirmed'].includes(order.status)) {
-      return errorResponse(res, 400, `Order cannot be accepted. Current status: ${order.status}`);
+    // If order is already 'preparing', it means it was already accepted - allow re-acceptance
+    if (!['pending', 'confirmed', 'preparing'].includes(order.status)) {
+      return errorResponse(res, 400, `Order cannot be accepted. Current status: ${order.status}. Only orders with status 'pending', 'confirmed', or 'preparing' can be accepted.`);
+    }
+    
+    // If order is already preparing, just update preparation time if provided
+    if (order.status === 'preparing') {
+      console.log(`⚠️ Order ${order.orderId} is already in 'preparing' status. Updating preparation time only.`);
+      // Continue to update preparation time below
     }
 
     // When restaurant accepts order, it means they're starting to prepare it

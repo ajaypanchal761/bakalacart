@@ -11,6 +11,7 @@ import alertSound from '@/assets/audio/alert.mp3';
 export const useRestaurantNotifications = () => {
   const socketRef = useRef(null);
   const [newOrder, setNewOrder] = useState(null);
+  const [orderStatusUpdate, setOrderStatusUpdate] = useState(null); // Track order status updates
   const [isConnected, setIsConnected] = useState(false);
   const audioRef = useRef(null);
   const userInteractedRef = useRef(false); // Track user interaction for autoplay policy
@@ -298,17 +299,27 @@ export const useRestaurantNotifications = () => {
       playNotificationSound();
     });
 
-    // Listen for order status updates
+    // Listen for order status updates (e.g., when admin accepts order on behalf of restaurant)
     socketRef.current.on('order_status_update', (data) => {
-      console.log('📊 Order status update:', data);
-      // You can handle status updates here if needed
+      console.log('📊 Order status update received via Socket.IO:', data);
+      setOrderStatusUpdate(data);
     });
 
     // Load notification sound
     audioRef.current = new Audio(alertSound);
     audioRef.current.volume = 0.7;
 
+    // Close socket on pagehide for bfcache compatibility
+    const handlePageHide = () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+    window.addEventListener('pagehide', handlePageHide);
+
     return () => {
+      window.removeEventListener('pagehide', handlePageHide);
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -371,9 +382,15 @@ export const useRestaurantNotifications = () => {
     setNewOrder(null);
   };
 
+  const clearOrderStatusUpdate = () => {
+    setOrderStatusUpdate(null);
+  };
+
   return {
     newOrder,
+    orderStatusUpdate,
     clearNewOrder,
+    clearOrderStatusUpdate,
     isConnected,
     playNotificationSound
   };

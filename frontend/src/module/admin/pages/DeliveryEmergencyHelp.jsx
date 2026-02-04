@@ -187,17 +187,19 @@ export default function DeliveryEmergencyHelp() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {emergencyFields.map((field) => (
               <div key={field.id} className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-900">
+                <label htmlFor={field.id} className="block text-sm font-semibold text-slate-900">
                   <span className="mr-2">{field.icon}</span>
                   {field.label}
                 </label>
                 <p className="text-xs text-slate-600 mb-2">{field.description}</p>
                 <div className="relative">
                   <input
+                    id={field.id}
                     type="text"
                     value={formData[field.id]}
                     onChange={(e) => handleInputChange(field.id, e.target.value)}
                     placeholder={field.placeholder}
+                    aria-describedby={field.description ? `${field.id}-description` : undefined}
                     className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       formErrors[field.id]
                         ? "border-red-300 focus:ring-red-500"

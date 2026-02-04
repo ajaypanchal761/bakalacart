@@ -2178,3 +2178,183 @@ export const getDeliveryBoysForAssignment = asyncHandler(async (req, res) => {
     return errorResponse(res, 500, 'Failed to fetch delivery boys');
   }
 });
+
+/**
+ * Accept order on behalf of restaurant
+ * POST /api/admin/orders/:orderId/accept-restaurant
+ */
+export const acceptOrderOnBehalfOfRestaurant = asyncHandler(async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Find order
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findById(orderId);
+    }
+    if (!order) {
+      order = await Order.findOne({ orderId: orderId });
+    }
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    // Allow accepting orders with status 'pending' or 'confirmed'
+    if (!['pending', 'confirmed'].includes(order.status)) {
+      return errorResponse(res, 400, `Order cannot be accepted. Current status: ${order.status}`);
+    }
+
+    // When admin accepts order on behalf of restaurant, set status to 'preparing'
+    if (order.status === 'pending') {
+      order.tracking.confirmed = { status: true, timestamp: new Date() };
+    }
+
+    // Set status to 'preparing' when order is accepted
+    order.status = 'preparing';
+    order.tracking.preparing = { status: true, timestamp: new Date() };
+    
+    // Mark as accepted by admin
+    order.acceptedByAdmin = true;
+    order.acceptedByAdminAt = new Date();
+    order.acceptedByAdminId = req.user?._id?.toString() || req.admin?._id?.toString() || null;
+
+    await order.save();
+
+    // Trigger ETA recalculation for restaurant accepted event
+    try {
+      const etaEventService = (await import('../../order/services/etaEventService.js')).default;
+      await etaEventService.handleRestaurantAccepted(order._id.toString(), new Date());
+      console.log(`✅ ETA updated after admin accepted order ${order.orderId} on behalf of restaurant`);
+    } catch (etaError) {
+      console.error('Error updating ETA after admin accept:', etaError);
+    }
+
+    // Notify restaurant about order acceptance via Socket.IO
+    try {
+      const { notifyRestaurantOrderUpdate } = await import('../../order/services/restaurantNotificationService.js');
+      await notifyRestaurantOrderUpdate(order._id.toString(), 'preparing');
+      console.log(`✅ Sent order status update notification to restaurant ${order.restaurantId} - order ${order.orderId} is now preparing`);
+    } catch (notifError) {
+      console.error('Error sending notification:', notifError);
+    }
+
+    return successResponse(res, 200, 'Order accepted successfully on behalf of restaurant', {
+      order
+    });
+  } catch (error) {
+    console.error('Error accepting order on behalf of restaurant:', error);
+    return errorResponse(res, 500, 'Failed to accept order');
+  }
+});
+
+/**
+ * Reassign order to same restaurant (resend notification)
+ * POST /api/admin/orders/:orderId/reassign-restaurant
+ */
+/**
+ * Delete order by ID
+ * DELETE /api/admin/orders/:id
+ */
+export const deleteOrder = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?.id || req.admin?.id || null;
+
+    console.log('🗑️ [deleteOrder] Deleting order:', {
+      id,
+      idType: typeof id,
+      isObjectId: mongoose.Types.ObjectId.isValid(id),
+      adminId
+    });
+
+    // Find order - try both MongoDB _id and orderId string
+    let order = null;
+    
+    if (mongoose.Types.ObjectId.isValid(id) && id.length === 24) {
+      order = await Order.findById(id);
+    }
+    
+    if (!order) {
+      order = await Order.findOne({ orderId: id });
+    }
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    // Check if order can be deleted (optional: add business logic here)
+    // For example, don't allow deleting orders that are in certain statuses
+    const restrictedStatuses = ['out_for_delivery', 'delivered'];
+    if (restrictedStatuses.includes(order.status)) {
+      return errorResponse(res, 400, `Cannot delete order with status: ${order.status}. Order is already ${order.status}.`);
+    }
+
+    // Delete the order
+    await Order.findByIdAndDelete(order._id);
+
+    console.log(`✅ [deleteOrder] Order deleted successfully: ${order.orderId} (${order._id})`);
+
+    return successResponse(res, 200, 'Order deleted successfully', {
+      orderId: order.orderId,
+      deletedAt: new Date()
+    });
+  } catch (error) {
+    console.error('❌ [deleteOrder] Error deleting order:', error);
+    return errorResponse(res, 500, `Failed to delete order: ${error.message}`);
+  }
+});
+
+export const reassignOrderToRestaurant = asyncHandler(async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // Find order
+    let order = null;
+    if (mongoose.Types.ObjectId.isValid(orderId) && orderId.length === 24) {
+      order = await Order.findById(orderId).populate('restaurantId', 'name location address phone ownerPhone');
+    }
+    if (!order) {
+      order = await Order.findOne({ orderId: orderId }).populate('restaurantId', 'name location address phone ownerPhone');
+    }
+
+    if (!order) {
+      return errorResponse(res, 404, 'Order not found');
+    }
+
+    // Check if order is in valid status for reassignment
+    if (['cancelled', 'delivered'].includes(order.status)) {
+      return errorResponse(res, 400, `Cannot reassign order. Current status: ${order.status}`);
+    }
+
+    const restaurantId = order.restaurantId?._id?.toString() || order.restaurantId?.toString();
+
+    if (!restaurantId) {
+      return errorResponse(res, 400, 'Restaurant ID not found in order');
+    }
+
+    // Resend notification to restaurant
+    try {
+      const { notifyRestaurantNewOrder } = await import('../../order/services/restaurantNotificationService.js');
+      await notifyRestaurantNewOrder(order, restaurantId);
+      console.log(`✅ Resent notification to restaurant ${restaurantId} for order ${order.orderId}`);
+    } catch (notifError) {
+      console.error('Error resending notification to restaurant:', notifError);
+      return errorResponse(res, 500, 'Failed to resend notification to restaurant');
+    }
+
+    // Update order metadata
+    order.reassignedByAdmin = true;
+    order.reassignedByAdminAt = new Date();
+    order.reassignedByAdminId = req.user?._id?.toString() || req.admin?._id?.toString() || null;
+
+    await order.save();
+
+    return successResponse(res, 200, 'Order reassigned to restaurant successfully. Notification sent.', {
+      order
+    });
+  } catch (error) {
+    console.error('Error reassigning order to restaurant:', error);
+    return errorResponse(res, 500, 'Failed to reassign order');
+  }
+});

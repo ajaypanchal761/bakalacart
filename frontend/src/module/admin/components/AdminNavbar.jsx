@@ -4,7 +4,6 @@ import {
   Menu,
   Search,
   User,
-  MessageCircle,
   ChevronDown,
   UtensilsCrossed,
   Mail,
@@ -132,9 +131,6 @@ export default function AdminNavbar({ onMenuClick }) {
   // Search results - replace with actual search API call
   const searchResults = []
 
-  // Messages - replace with actual API data
-  const messages = []
-
   // Emails - replace with actual API data
   const emails = []
 
@@ -236,61 +232,6 @@ export default function AdminNavbar({ onMenuClick }) {
 
           {/* Right: Notifications and User Profile */}
           <div className="flex items-center gap-3">
-            {/* Chat/MessageCircle */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="relative p-2 rounded-md text-neutral-700 hover:bg-neutral-100 hover:text-black transition-colors">
-                  <MessageCircle className="w-5 h-5" />
-                  {messages.filter((m) => m.unread).length > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-black text-white text-[10px] rounded-full flex items-center justify-center font-semibold px-1">
-                      {messages.filter((m) => m.unread).length}
-                    </span>
-                  )}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end" 
-                className="w-80 bg-white border border-neutral-200 rounded-lg shadow-lg z-50 text-neutral-900 animate-in fade-in-0 zoom-in-95 duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
-              >
-                <DropdownMenuLabel className="flex items-center justify-between">
-                  <span>Messages</span>
-                  <span className="text-xs text-neutral-500 font-normal">
-                    {messages.filter((m) => m.unread).length} new
-                  </span>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="max-h-96 overflow-y-auto">
-                  {messages.map((msg) => (
-                    <DropdownMenuItem
-                      key={msg.id}
-                      className="flex flex-col items-start p-3 cursor-pointer hover:bg-neutral-50"
-                    >
-                      <div className="flex items-start justify-between w-full">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-neutral-900">{msg.sender}</p>
-                            {msg.unread && (
-                              <span className="w-2 h-2 bg-black rounded-full"></span>
-                            )}
-                          </div>
-                          <p className="text-xs text-neutral-600 mt-1">{msg.message}</p>
-                          <p className="text-xs text-neutral-400 mt-1">{msg.time}</p>
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="justify-center cursor-pointer text-neutral-900 hover:text-black"
-                  onClick={() => navigate("/admin/chattings")}
-                >
-                  View all conversations
-                  <ArrowRight className="ml-2 w-4 h-4" />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
             {/* Messages/Mail */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

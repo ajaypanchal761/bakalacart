@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Plus, Minus, ArrowLeft, ChevronRight, Clock, MapPin, Phone, FileText, Utensils, Tag, Percent, Truck, Leaf, Share2, ChevronUp, ChevronDown, X, Check, Settings, CreditCard, Wallet, Building2, Sparkles } from "lucide-react"
+import { Plus, Minus, ArrowLeft, ChevronRight, Clock, MapPin, Phone, FileText, Utensils, Tag, Percent, Truck, Leaf, Share2, ChevronUp, ChevronDown, X, Check, Settings, CreditCard, Building2, Sparkles } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
 
@@ -90,9 +90,7 @@ export default function Cart() {
   const [showCoupons, setShowCoupons] = useState(false)
   const [appliedCoupon, setAppliedCoupon] = useState(null)
   const [couponCode, setCouponCode] = useState("")
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("razorpay") // razorpay | cash | wallet
-  const [walletBalance, setWalletBalance] = useState(0)
-  const [isLoadingWallet, setIsLoadingWallet] = useState(false)
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("razorpay") // razorpay | cash
   const [deliveryFleet, setDeliveryFleet] = useState("standard")
   const [showFleetOptions, setShowFleetOptions] = useState(false)
   const [note, setNote] = useState("")
@@ -568,24 +566,6 @@ export default function Cart() {
     calculatePricing()
   }, [cart, defaultAddress, appliedCoupon, couponCode, deliveryFleet, restaurantId])
 
-  // Fetch wallet balance
-  useEffect(() => {
-    const fetchWalletBalance = async () => {
-      try {
-        setIsLoadingWallet(true)
-        const response = await userAPI.getWallet()
-        if (response?.data?.success && response?.data?.data?.wallet) {
-          setWalletBalance(response.data.data.wallet.balance || 0)
-        }
-      } catch (error) {
-        console.error("Error fetching wallet balance:", error)
-        setWalletBalance(0)
-      } finally {
-        setIsLoadingWallet(false)
-      }
-    }
-    fetchWalletBalance()
-  }, [])
 
   // Fetch fee settings on mount
   useEffect(() => {
@@ -989,12 +969,6 @@ export default function Cart() {
         paymentMethod: orderPayload.paymentMethod
       });
 
-      // Check wallet balance if wallet payment selected
-      if (selectedPaymentMethod === "wallet" && walletBalance < total) {
-        toast.error(`Insufficient wallet balance. Required: ₹${total.toFixed(0)}, Available: ₹${walletBalance.toFixed(0)}`)
-        setIsPlacingOrder(false)
-        return
-      }
 
       // Create order in backend
       const orderResponse = await orderAPI.createOrder(orderPayload)
@@ -1013,24 +987,6 @@ export default function Cart() {
         return
       }
 
-      // Wallet flow: order placed with wallet payment (already processed in backend)
-      if (selectedPaymentMethod === "wallet") {
-        toast.success("Order placed with Wallet payment")
-        setPlacedOrderId(order?.orderId || order?.id || null)
-        setShowOrderSuccess(true)
-        clearCart()
-        setIsPlacingOrder(false)
-        // Refresh wallet balance
-        try {
-          const walletResponse = await userAPI.getWallet()
-          if (walletResponse?.data?.success && walletResponse?.data?.data?.wallet) {
-            setWalletBalance(walletResponse.data.data.wallet.balance || 0)
-          }
-        } catch (error) {
-          console.error("Error refreshing wallet balance:", error)
-        }
-        return
-      }
 
       if (!razorpay || !razorpay.orderId || !razorpay.key) {
         console.error("❌ Razorpay initialization failed:", { razorpay, order })
@@ -1744,8 +1700,6 @@ export default function Cart() {
                     <p className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200">
                       {selectedPaymentMethod === "razorpay" 
                         ? "Razorpay" 
-                        : selectedPaymentMethod === "wallet"
-                        ? "Wallet"
                         : "Cash on Delivery"}
                     </p>
                   </div>
@@ -1758,7 +1712,6 @@ export default function Cart() {
                     className="appearance-none bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 rounded-lg px-3 py-2 pr-9 text-sm md:text-base focus:outline-none focus:ring-2 focus:ring-green-500/40"
                   >
                     <option value="razorpay">Razorpay</option>
-                    <option value="wallet">Wallet {walletBalance > 0 ? `(₹${walletBalance.toFixed(0)})` : ''}</option>
                     <option value="cash">COD</option>
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -1768,10 +1721,10 @@ export default function Cart() {
               <Button
                 size="lg"
                 onClick={handlePlaceOrder}
-                disabled={isPlacingOrder || (selectedPaymentMethod === "wallet" && walletBalance < total)}
+                disabled={isPlacingOrder}
                 className="w-full bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700 text-white px-6 md:px-10 h-14 md:h-16 rounded-lg md:rounded-xl text-base md:text-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {(selectedPaymentMethod === "razorpay" || selectedPaymentMethod === "wallet") && (
+                {selectedPaymentMethod === "razorpay" && (
                   <div className="text-left mr-3 md:mr-4">
                     <p className="text-sm md:text-base opacity-90">₹{total.toFixed(0)}</p>
                     <p className="text-xs md:text-sm opacity-75">TOTAL</p>
@@ -1782,10 +1735,6 @@ export default function Cart() {
                     ? "Processing..."
                     : selectedPaymentMethod === "razorpay"
                       ? "Select Payment"
-                      : selectedPaymentMethod === "wallet"
-                      ? walletBalance >= total
-                        ? "Place Order"
-                        : "Insufficient Balance"
                       : "Place Order"}
                 </span>
                 <ChevronRight className="h-5 w-5 md:h-6 md:w-6 ml-2" />
@@ -1819,8 +1768,6 @@ export default function Cart() {
                   <p className="text-lg font-semibold text-gray-900">
                     {selectedPaymentMethod === "razorpay"
                       ? `Pay ₹${total.toFixed(2)} online (Razorpay)`
-                      : selectedPaymentMethod === "wallet"
-                      ? `Pay ₹${total.toFixed(2)} from Wallet`
                       : `Pay on delivery (COD)`}
                   </p>
                 </div>

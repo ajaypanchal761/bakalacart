@@ -23,6 +23,7 @@ import {
   ChevronRight
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import OptimizedImage from "@/components/OptimizedImage"
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -538,14 +539,15 @@ export default function HomePage() {
               className="absolute inset-0"
             >
               {/* Full Banner Image */}
-            <img 
+            <OptimizedImage 
               src={carouselSlides[currentSlide].image} 
               alt={carouselSlides[currentSlide].title}
-              className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.src = `https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=1200&h=600&fit=crop`
-                }}
-              />
+              className="w-full h-full"
+              sizes="100vw"
+              objectFit="cover"
+              priority={currentSlide === 0}
+              placeholder="blur"
+            />
               
               {/* Gradient Overlay for better text readability */}
               <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
@@ -602,6 +604,8 @@ export default function HomePage() {
                 className={`h-1.5 md:h-2 rounded-full transition-all duration-300 ${
                   index === currentSlide ? 'bg-[#ff8100] w-5 md:w-6' : 'bg-white/50 w-1.5 md:w-2 hover:bg-white/70'
                 }`}
+              aria-label={`Go to slide ${index + 1}`}
+              aria-current={index === currentSlide ? 'true' : 'false'}
             />
           ))}
           </div>
@@ -615,8 +619,9 @@ export default function HomePage() {
           <button 
             onClick={() => navigate("/usermain/categories")}
             className="bg-[#ff8100] rounded-full p-1.5 hover:bg-[#e67300] transition-colors"
+            aria-label="View all categories"
           >
-            <ChevronRight className="w-4 h-4 text-white" />
+            <ChevronRight className="w-4 h-4 text-white" aria-hidden="true" />
           </button>
         </div>
         
@@ -630,10 +635,13 @@ export default function HomePage() {
                 onClick={() => navigate(`/usermain/category/${category.name}`)}
               >
                 <div className="w-20 h-20 rounded-full overflow-hidden">
-                <img 
+                <OptimizedImage 
                   src={category.image} 
                   alt={category.name}
-                    className="w-full h-full object-cover"
+                  className="w-full h-full"
+                  sizes="80px"
+                  objectFit="cover"
+                  placeholder="blur"
                 />
               </div>
                 <p className="text-[10px] font-medium text-gray-700 text-center leading-tight">{category.name}</p>
@@ -661,13 +669,13 @@ export default function HomePage() {
             >
               {/* Image Container */}
               <div className="relative flex-shrink-0">
-                <img 
+                <OptimizedImage 
                   src={item.image} 
                   alt={item.name}
-                  className="w-full h-32 object-cover rounded-t-xl"
-                  onError={(e) => {
-                    e.target.src = `https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=400&fit=crop`
-                  }}
+                  className="w-full h-32 rounded-t-xl"
+                  sizes="(max-width: 640px) 50vw, 33vw"
+                  objectFit="cover"
+                  placeholder="blur"
                 />
                 {/* Price Badge - Top Left - White oval with black border */}
                 <div className="absolute top-1.5 left-1.5 bg-white border-2 border-black rounded-full px-2 py-0.5">
@@ -680,13 +688,15 @@ export default function HomePage() {
                     e.stopPropagation()
                     toggleWishlist(item, 'food')
                   }}
+                  aria-label={isInWishlist(item, 'food') ? `Remove ${item.name} from wishlist` : `Add ${item.name} to wishlist`}
                 >
                   <Heart 
                     className={`w-4 h-4 transition-all ${
                       isInWishlist(item, 'food') 
                         ? 'text-red-500 fill-red-500' 
                         : 'text-gray-400 hover:text-red-500'
-                    }`} 
+                    }`}
+                    aria-hidden="true"
                   />
                 </button>
               </div>
@@ -724,8 +734,11 @@ export default function HomePage() {
       <div className="px-4 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-900">Popular Restaurants</h3>
-          <button className="w-8 h-8 rounded-full border-2 border-[#ff8100] flex items-center justify-center hover:bg-[#ff8100]/10 transition-colors">
-            <ArrowRight className="w-4 h-4 text-[#ff8100]" />
+          <button 
+            className="w-8 h-8 rounded-full border-2 border-[#ff8100] flex items-center justify-center hover:bg-[#ff8100]/10 transition-colors"
+            aria-label="View all popular restaurants"
+          >
+            <ArrowRight className="w-4 h-4 text-[#ff8100]" aria-hidden="true" />
           </button>
         </div>
         
@@ -745,13 +758,13 @@ export default function HomePage() {
             >
               {/* Food Image - Large */}
               <div className="relative w-full h-40 rounded-t-xl overflow-hidden">
-                <img 
+                <OptimizedImage 
                   src={restaurant.foodImage} 
                   alt={restaurant.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = `https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&h=300&fit=crop`
-                  }}
+                  className="w-full h-full"
+                  sizes="200px"
+                  objectFit="cover"
+                  placeholder="blur"
                 />
                 {/* Heart Icon - Top Right */}
                 <button 
@@ -760,13 +773,15 @@ export default function HomePage() {
                     e.stopPropagation()
                     toggleWishlist(restaurant, 'restaurant')
                   }}
+                  aria-label={isInWishlist(restaurant, 'restaurant') ? `Remove ${restaurant.name} from wishlist` : `Add ${restaurant.name} to wishlist`}
                 >
                   <Heart 
                     className={`w-4 h-4 transition-all ${
                       isInWishlist(restaurant, 'restaurant') 
                         ? 'text-amber-700 fill-amber-700' 
                         : 'text-gray-400 hover:text-amber-700'
-                    }`} 
+                    }`}
+                    aria-hidden="true"
                   />
                 </button>
                 {/* Distance Badge - Bottom Right (White Banner with Orange Border) */}

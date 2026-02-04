@@ -12,6 +12,7 @@ import winston from 'winston';
 import mongoose from 'mongoose';
 import { uploadToCloudinary } from '../../../shared/utils/cloudinaryService.js';
 import { initializeCloudinary } from '../../../config/cloudinary.js';
+import emailService from '../../auth/services/emailService.js';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -1828,6 +1829,140 @@ export const createRestaurant = asyncHandler(async (req, res) => {
     }
     
     return errorResponse(res, 500, `Failed to create restaurant: ${error.message}`);
+  }
+});
+
+/**
+ * Send Credentials Email to Restaurant
+ * POST /api/admin/restaurants/:id/send-credentials
+ */
+export const sendRestaurantCredentialsEmail = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user._id;
+
+    const restaurant = await Restaurant.findById(id).select('+password');
+
+    if (!restaurant) {
+      return errorResponse(res, 404, 'Restaurant not found');
+    }
+
+    // Get restaurant email
+    const restaurantEmail = restaurant.email || restaurant.ownerEmail || restaurant.owner?.email;
+    
+    if (!restaurantEmail) {
+      return errorResponse(res, 400, 'Restaurant email not found. Cannot send credentials email.');
+    }
+
+    // Get restaurant password (if exists)
+    const restaurantPassword = restaurant.password ? 'Use your existing password' : 'Password not set. Please use OTP login or contact admin.';
+
+    // Prepare email content
+    const emailSubject = `Your Bakala Cart Restaurant Credentials - ${restaurant.name}`;
+    const emailText = `
+Hello ${restaurant.name || 'Restaurant Owner'},
+
+Your restaurant credentials for Bakala Cart are:
+
+Restaurant ID: ${restaurant.restaurantId || restaurant._id}
+Email: ${restaurantEmail}
+${restaurant.password ? `Password: ${restaurantPassword}` : 'Password: Please use OTP login or contact admin to set a password.'}
+
+Login URL: ${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}/restaurant/login
+
+If you have any questions, please contact our support team.
+
+Best regards,
+Bakala Cart Team
+    `.trim();
+
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+    .content { background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }
+    .credentials { background-color: white; padding: 15px; margin: 15px 0; border-left: 4px solid #4CAF50; }
+    .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Bakala Cart Restaurant Credentials</h1>
+    </div>
+    <div class="content">
+      <p>Hello ${restaurant.name || 'Restaurant Owner'},</p>
+      <p>Your restaurant credentials for Bakala Cart are:</p>
+      <div class="credentials">
+        <p><strong>Restaurant ID:</strong> ${restaurant.restaurantId || restaurant._id}</p>
+        <p><strong>Email:</strong> ${restaurantEmail}</p>
+        ${restaurant.password ? `<p><strong>Password:</strong> ${restaurantPassword}</p>` : '<p><strong>Password:</strong> Please use OTP login or contact admin to set a password.</p>'}
+      </div>
+      <p><strong>Login URL:</strong> <a href="${process.env.FRONTEND_URL || 'https://your-frontend-url.com'}/restaurant/login">Click here to login</a></p>
+      <p>If you have any questions, please contact our support team.</p>
+      <p>Best regards,<br>Bakala Cart Team</p>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Bakala Cart. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    // Send email using the email service
+    const { getSMTPCredentials } = await import('../../../shared/utils/envService.js');
+    const smtpCreds = await getSMTPCredentials();
+    const fromEmail = process.env.SMTP_FROM || smtpCreds.user || process.env.SMTP_USER || 'noreply@bakalacart.com';
+    const fromName = process.env.SMTP_FROM_NAME || 'Bakala Cart';
+
+    // Ensure transporter is initialized
+    if (!emailService.transporter) {
+      await emailService.initializeTransporter();
+    }
+    
+    if (!emailService.transporter) {
+      throw new Error('Email transporter is not configured. Please set up SMTP credentials in ENV Setup.');
+    }
+
+    const nodemailer = (await import('nodemailer')).default;
+    const mailOptions = {
+      from: `"${fromName}" <${fromEmail}>`,
+      to: restaurantEmail,
+      subject: emailSubject,
+      text: emailText,
+      html: emailHtml
+    };
+
+    const emailInfo = await emailService.transporter.sendMail(mailOptions);
+
+    logger.info(`Credentials email sent successfully`, {
+      messageId: emailInfo.messageId,
+      to: restaurantEmail
+    });
+
+    logger.info(`Credentials email sent to restaurant: ${id}`, {
+      sentBy: adminId,
+      restaurantName: restaurant.name,
+      email: restaurantEmail
+    });
+
+    return successResponse(res, 200, 'Credentials email sent successfully', {
+      restaurant: {
+        id: restaurant._id,
+        restaurantId: restaurant.restaurantId,
+        name: restaurant.name,
+        email: restaurantEmail
+      }
+    });
+  } catch (error) {
+    logger.error(`Error sending credentials email: ${error.message}`, { error: error.stack });
+    return errorResponse(res, 500, 'Failed to send credentials email');
   }
 });
 

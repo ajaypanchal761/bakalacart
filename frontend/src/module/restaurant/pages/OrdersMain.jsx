@@ -20,7 +20,6 @@ const filterTabs = [
   { id: "preparing", label: "Preparing" },
   { id: "ready", label: "Ready" },
   { id: "out-for-delivery", label: "Out for delivery" },
-  { id: "scheduled", label: "Scheduled" },
   { id: "completed", label: "Completed" },
   { id: "cancelled", label: "Cancelled" },
 ]
@@ -483,12 +482,13 @@ export default function OrdersMain() {
     isActive: null,
     rejectionReason: null,
     onboarding: null,
+    isAcceptingOrders: false,
     isLoading: true
   })
   const [isReverifying, setIsReverifying] = useState(false)
 
   // Restaurant notifications hook for real-time orders
-  const { newOrder, clearNewOrder, isConnected } = useRestaurantNotifications()
+  const { newOrder, orderStatusUpdate, clearNewOrder, clearOrderStatusUpdate, isConnected } = useRestaurantNotifications()
 
   const rejectReasons = [
     "Restaurant is too busy",
@@ -506,10 +506,17 @@ export default function OrdersMain() {
         const response = await restaurantAPI.getCurrentRestaurant()
         const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant
         if (restaurant) {
+          // Also check localStorage for isAcceptingOrders status
+          const savedStatus = localStorage.getItem('restaurant_online_status')
+          const isAcceptingOrders = savedStatus !== null 
+            ? JSON.parse(savedStatus) 
+            : (restaurant.isAcceptingOrders !== undefined ? restaurant.isAcceptingOrders : false)
+          
           setRestaurantStatus({
             isActive: restaurant.isActive,
             rejectionReason: restaurant.rejectionReason || null,
             onboarding: restaurant.onboarding || null,
+            isAcceptingOrders: isAcceptingOrders,
             isLoading: false
           })
           
@@ -542,9 +549,21 @@ export default function OrdersMain() {
     }
 
     window.addEventListener('restaurantProfileRefresh', handleProfileRefresh)
+    
+    // Listen for restaurant status changes (online/offline toggle)
+    const handleStatusChange = (event) => {
+      const isOnline = event.detail?.isOnline ?? false
+      setRestaurantStatus(prev => ({
+        ...prev,
+        isAcceptingOrders: isOnline
+      }))
+    }
+    
+    window.addEventListener('restaurantStatusChanged', handleStatusChange)
 
     return () => {
       window.removeEventListener('restaurantProfileRefresh', handleProfileRefresh)
+      window.removeEventListener('restaurantStatusChanged', handleStatusChange)
     }
   }, [navigate])
 
@@ -554,17 +573,23 @@ export default function OrdersMain() {
       setIsReverifying(true)
       await restaurantAPI.reverify()
       
-      // Refresh restaurant status
-      const response = await restaurantAPI.getCurrentRestaurant()
-      const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant
-      if (restaurant) {
-        setRestaurantStatus({
-          isActive: restaurant.isActive,
-          rejectionReason: restaurant.rejectionReason || null,
-          onboarding: restaurant.onboarding || null,
-          isLoading: false
-        })
-      }
+        // Refresh restaurant status
+        const response = await restaurantAPI.getCurrentRestaurant()
+        const restaurant = response?.data?.data?.restaurant || response?.data?.restaurant
+        if (restaurant) {
+          const savedStatus = localStorage.getItem('restaurant_online_status')
+          const isAcceptingOrders = savedStatus !== null 
+            ? JSON.parse(savedStatus) 
+            : (restaurant.isAcceptingOrders !== undefined ? restaurant.isAcceptingOrders : false)
+          
+          setRestaurantStatus({
+            isActive: restaurant.isActive,
+            rejectionReason: restaurant.rejectionReason || null,
+            onboarding: restaurant.onboarding || null,
+            isAcceptingOrders: isAcceptingOrders,
+            isLoading: false
+          })
+        }
       
       // Trigger profile refresh event
       window.dispatchEvent(new Event('restaurantProfileRefresh'))
@@ -631,6 +656,43 @@ export default function OrdersMain() {
       }
     }
   }, [newOrder])
+
+  // Handle order status updates (e.g., when admin accepts order on behalf of restaurant)
+  useEffect(() => {
+    if (orderStatusUpdate) {
+      console.log('📊 Order status update received:', orderStatusUpdate)
+      
+      const updatedOrderId = orderStatusUpdate.orderId || orderStatusUpdate.orderMongoId
+      const currentPopupOrderId = popupOrder?.orderId || popupOrder?.orderMongoId || newOrder?.orderId || newOrder?.orderMongoId
+      
+      // If the updated order matches the current popup order and status is 'preparing' (accepted)
+      if (updatedOrderId && (updatedOrderId === currentPopupOrderId || 
+          (popupOrder && (popupOrder.orderId === updatedOrderId || popupOrder.orderMongoId === updatedOrderId)) ||
+          (newOrder && (newOrder.orderId === updatedOrderId || newOrder.orderMongoId === updatedOrderId)))) {
+        
+        if (orderStatusUpdate.status === 'preparing') {
+          console.log('✅ Order was accepted by admin, closing popup and clearing order')
+          
+          // Close popup
+          setShowNewOrderPopup(false)
+          setPopupOrder(null)
+          clearNewOrder()
+          
+          // Stop audio if playing
+          if (audioRef.current) {
+            audioRef.current.pause()
+            audioRef.current.currentTime = 0
+          }
+          
+          // Show success message
+          toast.success('Order accepted by admin. Order is now in preparing status.')
+        }
+      }
+      
+      // Clear the status update after processing
+      clearOrderStatusUpdate()
+    }
+  }, [orderStatusUpdate, popupOrder, newOrder, clearNewOrder, clearOrderStatusUpdate])
 
   // Track popup state with ref to avoid stale closures
   const showNewOrderPopupRef = useRef(showNewOrderPopup)
@@ -722,13 +784,26 @@ export default function OrdersMain() {
 
   // Countdown timer
   useEffect(() => {
-    if (showNewOrderPopup && countdown > 0) {
-      const timer = setInterval(() => {
-        setCountdown(prev => prev - 1)
-      }, 1000)
-      return () => clearInterval(timer)
+    if (!showNewOrderPopup) {
+      return
     }
-  }, [showNewOrderPopup, countdown])
+    
+    // Reset countdown when popup opens
+    setCountdown(240)
+    
+    // Start countdown timer
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    
+    return () => clearInterval(timer)
+  }, [showNewOrderPopup])
 
   // Format countdown time
   const formatTime = (seconds) => {
@@ -750,19 +825,35 @@ export default function OrdersMain() {
     // Accept order via API if we have a real order
     if (orderToAccept?.orderMongoId || orderToAccept?.orderId) {
       try {
+        // Prefer MongoDB _id over orderId for API calls
         const orderId = orderToAccept.orderMongoId || orderToAccept.orderId
+        console.log('📋 Accepting order:', { orderId, prepTime, orderStatus: orderToAccept.status })
+        
         const response = await restaurantAPI.acceptOrder(orderId, prepTime)
         console.log('✅ Order accepted:', orderId)
         toast.success('Order accepted successfully')
       } catch (error) {
         console.error('❌ Error accepting order:', error)
+        console.error('❌ Order details:', { 
+          orderMongoId: orderToAccept?.orderMongoId, 
+          orderId: orderToAccept?.orderId,
+          status: orderToAccept?.status 
+        })
+        
         const errorMessage = error.response?.data?.message || 
                            error.message || 
                            'Failed to accept order. Please try again.'
         
         // Show specific error message
         if (error.response?.status === 400) {
-          toast.error(errorMessage)
+          // Check if order is already in a different status
+          if (errorMessage.includes('Current status')) {
+            toast.error(errorMessage + '. The order may have already been processed.')
+          } else {
+            toast.error(errorMessage)
+          }
+        } else if (error.response?.status === 403) {
+          toast.error(errorMessage || 'Restaurant is not accepting orders. Please enable order acceptance in settings.')
         } else if (error.response?.status === 404) {
           toast.error('Order not found. It may have been cancelled or already processed.')
         } else {
@@ -1127,8 +1218,6 @@ export default function OrdersMain() {
         return <ReadyOrders onSelectOrder={handleSelectOrder} />
       case "out-for-delivery":
         return <OutForDeliveryOrders onSelectOrder={handleSelectOrder} />
-      case "scheduled":
-        return <EmptyState message="Scheduled orders will appear here" />
       case "completed":
         return <CompletedOrders onSelectOrder={handleSelectOrder} />
       case "cancelled":
@@ -1385,9 +1474,22 @@ export default function OrdersMain() {
                 {/* Header */}
                 <div className="px-4 py-3 bg-white border-b border-gray-200 flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="text-base font-bold text-gray-900">
-                      {(popupOrder || newOrder)?.orderId || '#Order'}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-gray-900">
+                        {(popupOrder || newOrder)?.orderId || '#Order'}
+                      </h3>
+                      {countdown > 0 && (
+                        <span className={`text-sm font-semibold px-2 py-0.5 rounded ${
+                          countdown <= 60 
+                            ? 'bg-red-100 text-red-600' 
+                            : countdown <= 120 
+                            ? 'bg-orange-100 text-orange-600' 
+                            : 'bg-green-100 text-green-600'
+                        }`}>
+                          {formatTime(countdown)}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {(popupOrder || newOrder)?.restaurantName || 'Restaurant'}
                     </p>
@@ -1547,20 +1649,22 @@ export default function OrdersMain() {
 
                   {/* Accept and Reject buttons */}
                   <div className="space-y-3">
-                    {/* Accept button with countdown */}
+                    {/* Accept button - enabled only if restaurant is accepting orders */}
                     <div className="relative">
                       <button
                         onClick={handleAcceptOrder}
-                        className="w-full bg-black text-white py-3.5 rounded-lg font-semibold text-sm hover:bg-gray-800 transition-colors relative overflow-hidden"
+                        disabled={!restaurantStatus.isAcceptingOrders}
+                        className={`w-full py-3.5 rounded-lg font-semibold text-sm transition-colors ${
+                          restaurantStatus.isAcceptingOrders
+                            ? 'bg-green-600 text-white hover:bg-green-700 active:bg-green-800'
+                            : 'bg-gray-400 text-white cursor-not-allowed opacity-50'
+                        }`}
                       >
-                        {/* Loading background */}
-                        <motion.div
-                          className="absolute inset-0 bg-blue-600"
-                          initial={{ width: "100%" }}
-                          animate={{ width: `${(countdown / 240) * 100}%` }}
-                          transition={{ duration: 1, ease: "linear" }}
-                        />
-                        <span className="relative z-10">Accept ({formatTime(countdown)})</span>
+                        <span>
+                          {restaurantStatus.isAcceptingOrders 
+                            ? 'Accept Order' 
+                            : 'Accept (Restaurant cannot accept orders)'}
+                        </span>
                       </button>
                     </div>
 
@@ -1860,62 +1964,6 @@ export default function OrdersMain() {
   )
 }
 
-// Resend Notification Button Component
-function ResendNotificationButton({ orderId, mongoId, onSuccess }) {
-  const [loading, setLoading] = useState(false);
-
-  const handleResend = async (e) => {
-    e.stopPropagation(); // Prevent card click
-    if (loading) return;
-
-    try {
-      setLoading(true);
-      const id = mongoId || orderId;
-      const response = await restaurantAPI.resendDeliveryNotification(id);
-      
-      if (response.data?.success) {
-        toast.success(`Notification sent to ${response.data.data?.notifiedCount || 0} delivery partners`);
-        // Refresh orders if onSuccess callback is provided
-        if (onSuccess) {
-          // Trigger a refresh by calling onSuccess with a special flag
-          setTimeout(() => {
-            window.location.reload(); // Simple refresh for now
-          }, 1000);
-        }
-      } else {
-        toast.error(response.data?.message || 'Failed to send notification');
-      }
-    } catch (error) {
-      console.error('Error resending notification:', error);
-      toast.error(error.response?.data?.message || 'Failed to send notification. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleResend}
-      disabled={loading}
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      title="Resend notification to delivery partners"
-    >
-      {loading ? (
-        <>
-          <Loader2 className="w-3 h-3 animate-spin" />
-          <span>Sending...</span>
-        </>
-      ) : (
-        <>
-          <Volume2 className="w-3 h-3" />
-          <span>Resend</span>
-        </>
-      )}
-    </button>
-  );
-}
-
 // Order Card Component
 function OrderCard({
   orderId,
@@ -2044,9 +2092,6 @@ function OrderCard({
                   }`} />
                   {deliveryPartnerId ? 'Assigned' : 'Not Assigned'}
                 </span>
-                {!deliveryPartnerId && (
-                  <ResendNotificationButton orderId={orderId} mongoId={mongoId} onSuccess={onSelect} />
-                )}
               </div>
             )}
           </div>

@@ -316,9 +316,10 @@ export default function BottomNavOrders() {
         {!isHubMode && (
           <button
             onClick={handleToggleMode}
+            aria-label="Switch to Hub mode"
             className="flex flex-col items-center gap-1 bg-black text-white/90 pl-3 py-3 rounded-l-full rounded-r-[12px] shadow-md border border-black active:scale-95"
           >
-            <ArrowRightLeft className="w-4 h-4" />
+            <ArrowRightLeft className="w-4 h-4" aria-hidden="true" />
             <span className="text-[11px]">To Hub</span>
           </button>
         )}

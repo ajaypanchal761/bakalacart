@@ -185,12 +185,20 @@ export default function Under250() {
         setLoadingCategories(true)
         const response = await api.get('/categories/public')
         if (response.data.success && response.data.data.categories) {
-          const adminCategories = response.data.data.categories.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            image: cat.image || foodImages[0], // Fallback to default image if not provided
-            slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-')
-          }))
+          const adminCategories = response.data.data.categories.map(cat => {
+            // Check if image is valid (not empty, not placeholder, and is a valid URL)
+            const isValidImage = cat.image && 
+                                 cat.image.trim() !== '' && 
+                                 cat.image !== 'https://via.placeholder.com/40' &&
+                                 (cat.image.startsWith('http://') || cat.image.startsWith('https://'))
+            
+            return {
+              id: cat.id,
+              name: cat.name,
+              image: isValidImage ? cat.image : foodImages[0], // Fallback to default image if not provided or empty
+              slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-')
+            }
+          })
           setCategories(adminCategories)
         } else {
           // Fallback to default categories if API fails
@@ -447,15 +455,51 @@ export default function Under250() {
                       whileTap={{ scale: 0.95 }}
                       transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     >
-                      <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all">
-                        <OptimizedImage
-                          src={category.image}
-                          alt={category.name}
-                          className="w-full h-full bg-white rounded-full"
-                          objectFit="cover"
-                          sizes="(max-width: 640px) 62px, (max-width: 768px) 96px, 112px"
-                          placeholder="blur"
-                        />
+                      <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all bg-gray-100 dark:bg-gray-800">
+                        {category.image && category.image.trim() !== '' && category.image !== 'https://via.placeholder.com/40' ? (
+                          <img
+                            src={category.image}
+                            alt={category.name}
+                            className="w-full h-full object-cover rounded-full"
+                            loading="lazy"
+                            onLoad={() => {
+                              console.log(`✅ Image loaded successfully for category "${category.name}":`, category.image)
+                            }}
+                            onError={(e) => {
+                              console.error(`❌ Image failed to load for category "${category.name}":`, category.image)
+                              // Try fallback image
+                              if (e.target.src !== foodImages[0]) {
+                                console.log('🔄 Trying fallback image...')
+                                e.target.src = foodImages[0]
+                              } else {
+                                // If fallback also fails, show emoji
+                                console.log('⚠️ Fallback also failed, showing emoji')
+                                e.target.style.display = 'none'
+                                if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                  const fallback = document.createElement('div')
+                                  fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                  fallback.textContent = '🍽️'
+                                  e.target.parentElement.appendChild(fallback)
+                                }
+                              }
+                            }}
+                          />
+                        ) : (
+                          <img
+                            src={foodImages[0]}
+                            alt={category.name}
+                            className="w-full h-full object-cover rounded-full"
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                              if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                const fallback = document.createElement('div')
+                                fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                fallback.textContent = '🍽️'
+                                e.target.parentElement.appendChild(fallback)
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                       <span className={`text-xs sm:text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 text-center pb-1 ${isActive ? 'border-b-2 border-green-600' : ''}`}>
                         {category.name.length > 7 ? `${category.name.slice(0, 7)}...` : category.name}

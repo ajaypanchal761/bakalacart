@@ -596,81 +596,32 @@ const DeliveryTrackingMap = ({
     socketRef.current.on('connect', () => {
       console.log('✅ Socket connected for order:', orderId);
       socketRef.current.emit('join-order-tracking', orderId);
-      socketRef.current.emit('request-current-location', orderId);
-      console.log('📡 Requested current location for order:', orderId);
+      // DISABLED: Live location tracking disabled - only show static route
+      // socketRef.current.emit('request-current-location', orderId);
+      // console.log('📡 Requested current location for order:', orderId);
       
-      // Also request location updates periodically
-      const locationRequestInterval = setInterval(() => {
-        if (socketRef.current && socketRef.current.connected) {
-          socketRef.current.emit('request-current-location', orderId);
-        }
-      }, 5000); // Request every 5 seconds
-      
-      // Store interval ID for cleanup
-      socketRef.current._locationRequestInterval = locationRequestInterval;
+      // DISABLED: Periodic location updates disabled
+      // const locationRequestInterval = setInterval(() => {
+      //   if (socketRef.current && socketRef.current.connected) {
+      //     socketRef.current.emit('request-current-location', orderId);
+      //   }
+      // }, 5000);
+      // socketRef.current._locationRequestInterval = locationRequestInterval;
     });
 
     socketRef.current.on('disconnect', () => {
       console.log('❌ Socket disconnected');
     });
 
-    socketRef.current.on(`location-receive-${orderId}`, (data) => {
-      console.log('📍📍📍 Received REAL-TIME location update via socket:', data);
-      if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
-        const location = { lat: data.lat, lng: data.lng, heading: data.heading || data.bearing || 0 };
-        console.log('✅✅✅ Updating bike to REAL delivery boy location:', location);
-        setCurrentLocation(location);
-        setDeliveryBoyLocation(location);
-        
-        // RAPIDO-STYLE: Use route-based animation if progress is available
-        if (isMapLoaded && mapInstance.current) {
-          if (data.progress !== undefined && animationControllerRef.current && routePolylinePointsRef.current) {
-            // Backend sent progress - use route-based animation
-            console.log('🛵 Using route-based animation with progress:', data.progress);
-            animationControllerRef.current.updatePosition(data.progress, data.bearing || data.heading || 0);
-          } else {
-            // Fallback: Use moveBikeSmoothly (will use route-based if polyline available)
-            console.log('🚴 Moving bike to location:', location);
-            moveBikeSmoothly(data.lat, data.lng, data.heading || data.bearing || 0);
-          }
-        } else {
-          // Store for when map loads
-          console.log('⏳ Map not loaded yet, storing location for later:', location);
-          setCurrentLocation(location);
-        }
-      } else {
-        console.warn('⚠️ Invalid location data received:', data);
-      }
-    });
+    // DISABLED: Live location tracking - only show static route from restaurant to customer
+    // socketRef.current.on(`location-receive-${orderId}`, (data) => {
+    //   // Live location updates disabled
+    // });
 
-    socketRef.current.on(`current-location-${orderId}`, (data) => {
-      console.log('📍📍📍 Received CURRENT location via socket:', data);
-      if (data && typeof data.lat === 'number' && typeof data.lng === 'number') {
-        const location = { lat: data.lat, lng: data.lng, heading: data.heading || data.bearing || 0 };
-        console.log('✅✅✅ Updating bike to REAL current delivery boy location:', location);
-        setCurrentLocation(location);
-        setDeliveryBoyLocation(location);
-        
-        // RAPIDO-STYLE: Use route-based animation if progress is available
-        if (isMapLoaded && mapInstance.current) {
-          if (data.progress !== undefined && animationControllerRef.current && routePolylinePointsRef.current) {
-            // Backend sent progress - use route-based animation
-            console.log('🛵 Using route-based animation with progress:', data.progress);
-            animationControllerRef.current.updatePosition(data.progress, data.bearing || data.heading || 0);
-          } else {
-            // Fallback: Use moveBikeSmoothly (will use route-based if polyline available)
-            console.log('🚴 Moving bike to current location:', location);
-            moveBikeSmoothly(data.lat, data.lng, data.heading || data.bearing || 0);
-          }
-        } else {
-          // Store for when map loads
-          console.log('⏳ Map not loaded yet, storing location for later:', location);
-          setCurrentLocation(location);
-        }
-      } else {
-        console.warn('⚠️ Invalid current location data received:', data);
-      }
-    });
+    // DISABLED: Current location updates - only show static route
+    // socketRef.current.on(`current-location-${orderId}`, (data) => {
+    //   // Current location updates disabled
+    // });
     
     // Listen for route initialization from backend
     socketRef.current.on(`route-initialized-${orderId}`, (data) => {
@@ -705,7 +656,22 @@ const DeliveryTrackingMap = ({
       }
     });
 
+    // Close socket on pagehide for bfcache compatibility
+    const handlePageHide = () => {
+      if (socketRef.current) {
+        if (socketRef.current._locationRequestInterval) {
+          clearInterval(socketRef.current._locationRequestInterval);
+        }
+        socketRef.current.off(`location-receive-${orderId}`);
+        socketRef.current.off(`current-location-${orderId}`);
+        socketRef.current.off('order_status_update');
+        socketRef.current.disconnect();
+      }
+    };
+    window.addEventListener('pagehide', handlePageHide);
+
     return () => {
+      window.removeEventListener('pagehide', handlePageHide);
       if (socketRef.current) {
         // Clear location request interval if it exists
         if (socketRef.current._locationRequestInterval) {
@@ -1052,7 +1018,8 @@ const DeliveryTrackingMap = ({
             console.log('🚴 Map loaded - Delivery partner detected, waiting for REAL location from socket...');
             // Request current location immediately
             if (socketRef.current && socketRef.current.connected) {
-              socketRef.current.emit('request-current-location', orderId);
+              // DISABLED: Live location tracking disabled
+              // socketRef.current.emit('request-current-location', orderId);
               console.log('📡 Requested current location immediately on map load');
             }
             // Don't create bike at restaurant - wait for real location
@@ -1093,9 +1060,10 @@ const DeliveryTrackingMap = ({
       // DO NOT show bike at restaurant - wait for real location from socket
       // Bike will be created when real location is received via socket
       console.log('⏳ Waiting for real location from socket - NOT showing at restaurant');
-      if (socketRef.current && socketRef.current.connected) {
-        socketRef.current.emit('request-current-location', orderId);
-      }
+      // DISABLED: Live location tracking disabled
+      // if (socketRef.current && socketRef.current.connected) {
+      //   socketRef.current.emit('request-current-location', orderId);
+      // }
     }
     
     // Throttle route updates to avoid too many API calls

@@ -131,8 +131,15 @@ export default function RegularOrderReport() {
         const response = await adminAPI.getOrders(params)
         
         if (response.data?.success) {
+          // Filter out wallet payment orders
+          const nonWalletOrders = (response.data.data.orders || []).filter(order => {
+            const paymentMethod = order.payment?.method || order.paymentMethod || order.paymentType || ''
+            const paymentMethodLower = String(paymentMethod).toLowerCase().trim()
+            return paymentMethodLower !== 'wallet'
+          })
+          
           // Transform backend orders to match frontend format
-          const transformedOrders = (response.data.data.orders || []).map(order => ({
+          const transformedOrders = nonWalletOrders.map(order => ({
             orderId: order.orderId,
             restaurant: order.restaurant,
             customerName: order.customerName,

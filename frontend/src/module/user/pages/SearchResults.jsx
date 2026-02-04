@@ -59,7 +59,7 @@ export default function SearchResults() {
             ...categoriesArray.map((cat) => ({
               id: cat.slug || cat.id,
               name: cat.name,
-              image: cat.image || foodImages[0],
+              image: (cat.image && cat.image.trim() !== '') ? cat.image : foodImages[0],
               type: cat.type,
             }))
           ]

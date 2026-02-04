@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Package, Search, CheckCircle2, XCircle, Loader2, User, MapPin, Phone, ShoppingBag, IndianRupee } from "lucide-react"
+import { Package, Search, CheckCircle2, XCircle, Loader2, User, Phone, IndianRupee, CheckSquare, Square } from "lucide-react"
 import { adminAPI } from "@/lib/api"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,10 @@ export default function OrderAssign() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [selectedOrders, setSelectedOrders] = useState(new Set())
+  const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false)
+  const [bulkDeliveryBoyId, setBulkDeliveryBoyId] = useState("")
+  const [isBulkAssigning, setIsBulkAssigning] = useState(false)
 
   // Fetch orders for assignment
   const fetchOrders = async () => {
@@ -164,6 +168,85 @@ export default function OrderAssign() {
     }
   }
 
+  // Handle bulk assignment
+  const handleBulkAssign = async () => {
+    if (!bulkDeliveryBoyId) {
+      toast.error("Please select a delivery boy")
+      return
+    }
+
+    if (selectedOrders.size === 0) {
+      toast.error("Please select at least one order")
+      return
+    }
+
+    try {
+      setIsBulkAssigning(true)
+      const orderIds = Array.from(selectedOrders)
+      let successCount = 0
+      let failCount = 0
+
+      // Assign orders one by one
+      for (const orderId of orderIds) {
+        try {
+          const order = orders.find(o => (o.id || o._id) === orderId)
+          if (!order) continue
+
+          const response = await adminAPI.assignOrderToDeliveryBoy(
+            order.id || order.orderId || orderId,
+            bulkDeliveryBoyId
+          )
+
+          if (response?.data?.success) {
+            successCount++
+          } else {
+            failCount++
+          }
+        } catch (error) {
+          console.error(`Error assigning order ${orderId}:`, error)
+          failCount++
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully assigned ${successCount} order(s)`)
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to assign ${failCount} order(s)`)
+      }
+
+      setBulkAssignDialogOpen(false)
+      setBulkDeliveryBoyId("")
+      setSelectedOrders(new Set())
+      fetchOrders() // Refresh orders list
+    } catch (error) {
+      console.error("Error in bulk assignment:", error)
+      toast.error("Failed to assign orders. Please try again.")
+    } finally {
+      setIsBulkAssigning(false)
+    }
+  }
+
+  // Toggle order selection
+  const toggleOrderSelection = (orderId) => {
+    const newSelected = new Set(selectedOrders)
+    if (newSelected.has(orderId)) {
+      newSelected.delete(orderId)
+    } else {
+      newSelected.add(orderId)
+    }
+    setSelectedOrders(newSelected)
+  }
+
+  // Toggle select all
+  const toggleSelectAll = () => {
+    if (selectedOrders.size === orders.length) {
+      setSelectedOrders(new Set())
+    } else {
+      setSelectedOrders(new Set(orders.map(o => o.id || o._id)))
+    }
+  }
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -174,9 +257,18 @@ export default function OrderAssign() {
             Order Assign
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Assign delivery boys to orders
+            Assign delivery boys to orders (single or multiple)
           </p>
         </div>
+        {selectedOrders.size > 0 && (
+          <Button
+            onClick={() => setBulkAssignDialogOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <User className="w-4 h-4 mr-2" />
+            Assign {selectedOrders.size} Order{selectedOrders.size > 1 ? 's' : ''}
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -222,6 +314,19 @@ export default function OrderAssign() {
               <thead className="bg-gray-50 dark:bg-gray-900 border-b">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="flex items-center gap-2 hover:text-gray-700"
+                    >
+                      {selectedOrders.size === orders.length && orders.length > 0 ? (
+                        <CheckSquare className="w-4 h-4" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                      Select
+                    </button>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Order ID
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -251,8 +356,23 @@ export default function OrderAssign() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {orders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                {orders.map((order) => {
+                  const orderId = order.id || order._id
+                  const isSelected = selectedOrders.has(orderId)
+                  return (
+                  <tr key={orderId} className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => toggleOrderSelection(orderId)}
+                        className="flex items-center justify-center"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <Square className="w-5 h-5 text-gray-400" />
+                        )}
+                      </button>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
                         {order.orderId}
@@ -378,7 +498,8 @@ export default function OrderAssign() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -574,6 +695,138 @@ export default function OrderAssign() {
                 </>
               ) : (
                 "Assign"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Dialog */}
+      <Dialog open={bulkAssignDialogOpen} onOpenChange={setBulkAssignDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white">
+              Bulk Assign Orders
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 dark:text-gray-400 mt-2">
+              Assign {selectedOrders.size} order{selectedOrders.size > 1 ? 's' : ''} to a delivery boy
+            </DialogDescription>
+          </DialogHeader>
+          
+          {/* Selected Orders Info */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Selected Orders</span>
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {Array.from(selectedOrders).map((orderId) => {
+                const order = orders.find(o => (o.id || o._id) === orderId)
+                return order ? (
+                  <div key={orderId} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700 dark:text-gray-300">{order.orderId}</span>
+                    <span className="text-gray-500 dark:text-gray-400">₹{order.totalAmount?.toFixed(2) || "0.00"}</span>
+                  </div>
+                ) : null
+              })}
+            </div>
+          </div>
+
+          {/* Delivery Boy Selection */}
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Select Delivery Boy
+            </label>
+            {isLoadingDeliveryBoys ? (
+              <div className="flex items-center justify-center p-8 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-sm text-gray-500">Loading delivery boys...</span>
+              </div>
+            ) : deliveryBoys.length === 0 ? (
+              <div className="text-center p-8 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                <User className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">No delivery boys available</p>
+              </div>
+            ) : (
+              <Select
+                value={bulkDeliveryBoyId}
+                onValueChange={setBulkDeliveryBoyId}
+              >
+                <SelectTrigger className="w-full h-11">
+                  <SelectValue placeholder="Choose a delivery boy" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] z-[60]">
+                  {deliveryBoys.length > 0 ? (
+                    deliveryBoys.map((db) => {
+                      const dbId = db._id || db.id
+                      const dbName = db.name || "Unknown"
+                      const dbPhone = db.phone || ""
+                      const isOnline = db.isOnline || false
+                      
+                      return (
+                        <SelectItem 
+                          key={dbId} 
+                          value={dbId?.toString()} 
+                          className="cursor-pointer py-3"
+                        >
+                          <div className="flex items-center justify-between w-full gap-3">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
+                                <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium text-gray-900 dark:text-white truncate">{dbName}</span>
+                                {dbPhone && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                    <Phone className="w-3 h-3 flex-shrink-0" />
+                                    <span className="truncate">{dbPhone}</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {isOnline && (
+                              <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full flex items-center gap-1 flex-shrink-0">
+                                <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+                                Online
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      )
+                    })
+                  ) : (
+                    <div className="px-4 py-2 text-sm text-gray-500">No delivery boys available</div>
+                  )}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBulkAssignDialogOpen(false)
+                setBulkDeliveryBoyId("")
+              }}
+              className="min-w-[100px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkAssign}
+              disabled={!bulkDeliveryBoyId || isBulkAssigning}
+              className="bg-blue-600 hover:bg-blue-700 text-white min-w-[100px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isBulkAssigning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                `Assign ${selectedOrders.size} Order${selectedOrders.size > 1 ? 's' : ''}`
               )}
             </Button>
           </div>

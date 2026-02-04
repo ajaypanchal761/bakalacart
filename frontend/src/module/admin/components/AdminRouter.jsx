@@ -9,6 +9,7 @@ import NewRefundRequests from "../pages/refunds/NewRefundRequests";
 import FoodApproval from "../pages/restaurant/FoodApproval";
 import OrdersPage from "../pages/orders/OrdersPage";
 import OrderAssign from "../pages/orders/OrderAssign";
+import RestaurantOrders from "../pages/orders/RestaurantOrders";
 import OrderDetectDelivery from "../pages/OrderDetectDelivery";
 import Category from "../pages/categories/Category";
 import FeeSettings from "../pages/fee-settings/FeeSettings";
@@ -140,6 +141,8 @@ export default function AdminRouter() {
         <Route path="/settings" element={<AdminSettings />} />
 
         {/* ORDER MANAGEMENT */}
+        {/* Restaurant Orders */}
+        <Route path="restaurant-orders" element={<RestaurantOrders />} />
         {/* Order Assign */}
         <Route path="order-assign" element={<OrderAssign />} />
         {/* Orders */}

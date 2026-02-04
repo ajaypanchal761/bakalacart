@@ -1535,6 +1535,7 @@ export default function HubMenu() {
           whileTap={{ scale: 0.96 }}
           onClick={() => setIsAddPopupOpen(true)}
           className="px-4 py-2 border bg-black text-white border-gray-800 rounded-lg text-sm font-bold"
+          aria-label="Add item"
         >
           + ADD
         </motion.button>)}
@@ -1931,9 +1932,10 @@ export default function HubMenu() {
                     setIsSearchOpen(false)
                     setSearchQuery("")
                   }}
+                  aria-label="Close search"
                   className="p-1 rounded-full hover:bg-gray-100"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
+                  <X className="w-5 h-5 text-gray-600" aria-hidden="true" />
                 </button>
               </div>
               <div className="px-4 py-4 border-b border-gray-200">
@@ -1944,15 +1946,17 @@ export default function HubMenu() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search for food items..."
+                    aria-label="Search menu items"
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     autoFocus
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery("")}
+                      aria-label="Clear search"
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"
                     >
-                      <X className="w-4 h-4 text-gray-600" />
+                      <X className="w-4 h-4 text-gray-600" aria-hidden="true" />
                     </button>
                   )}
                 </div>

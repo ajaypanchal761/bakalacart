@@ -338,7 +338,17 @@ export const useDeliveryNotifications = () => {
       playNotificationSound();
     });
 
+    // Close socket on pagehide for bfcache compatibility
+    const handlePageHide = () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+    window.addEventListener('pagehide', handlePageHide);
+
     return () => {
+      window.removeEventListener('pagehide', handlePageHide);
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;

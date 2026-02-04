@@ -242,7 +242,14 @@ export default function OrderDetectDelivery() {
         const response = await adminAPI.getOrders(params)
         
         if (response.data?.success && response.data?.data?.orders) {
-          const transformedOrders = response.data.data.orders.map((order, index) => 
+          // Filter out wallet payment orders
+          const nonWalletOrders = response.data.data.orders.filter(order => {
+            const paymentMethod = order.payment?.method || order.paymentMethod || order.paymentType || ''
+            const paymentMethodLower = String(paymentMethod).toLowerCase().trim()
+            return paymentMethodLower !== 'wallet'
+          })
+          
+          const transformedOrders = nonWalletOrders.map((order, index) => 
             transformOrder(order, index)
           )
           setOrders(transformedOrders)

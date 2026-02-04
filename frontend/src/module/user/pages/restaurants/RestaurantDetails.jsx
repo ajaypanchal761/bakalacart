@@ -1301,6 +1301,7 @@ export default function RestaurantDetails() {
                     placeholder="Search for dishes..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    aria-label="Search for dishes"
                     className="w-full pl-10 pr-10 py-2 rounded-full border border-gray-200 dark:border-gray-800 shadow-sm bg-white dark:bg-[#1a1a1a] text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     autoFocus
                     onBlur={() => {
@@ -1315,9 +1316,10 @@ export default function RestaurantDetails() {
                         setSearchQuery("")
                         setShowSearch(false)
                       }}
+                      aria-label="Clear search"
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4" aria-hidden="true" />
                     </button>
                   )}
                 </div>

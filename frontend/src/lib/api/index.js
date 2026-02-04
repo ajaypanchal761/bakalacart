@@ -923,6 +923,11 @@ export const adminAPI = {
     return apiClient.delete(API_ENDPOINTS.ADMIN.RESTAURANT_DELETE.replace(':id', id));
   },
 
+  // Send credentials email to restaurant
+  sendRestaurantCredentialsEmail: (id) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.RESTAURANT_SEND_CREDENTIALS.replace(':id', id));
+  },
+
   // Get all offers (with restaurant and dish details)
   getAllOffers: (params = {}) => {
     return apiClient.get(API_ENDPOINTS.ADMIN.OFFERS, { params });
@@ -1059,6 +1064,16 @@ export const adminAPI = {
     return apiClient.get(API_ENDPOINTS.ADMIN.ORDERS, { params });
   },
 
+  // Get order by ID
+  getOrderById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.ORDER_BY_ID.replace(':id', id));
+  },
+
+  // Delete order
+  deleteOrder: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.ORDER_DELETE.replace(':id', id));
+  },
+
   // Get orders searching for deliveryman
   getSearchingDeliverymanOrders: (params = {}) => {
     return apiClient.get(API_ENDPOINTS.ADMIN.ORDERS_SEARCHING_DELIVERYMAN, { params });
@@ -1089,6 +1104,16 @@ export const adminAPI = {
     return apiClient.post(API_ENDPOINTS.ADMIN.ORDER_ASSIGN.replace(':orderId', orderId), {
       deliveryBoyId
     });
+  },
+
+  // Accept order on behalf of restaurant
+  acceptOrderOnBehalfOfRestaurant: (orderId) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.ORDER_ACCEPT_RESTAURANT.replace(':orderId', orderId));
+  },
+
+  // Reassign order to same restaurant
+  reassignOrderToRestaurant: (orderId) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.ORDER_REASSIGN_RESTAURANT.replace(':orderId', orderId));
   },
 
   // Get delivery boys for assignment dropdown

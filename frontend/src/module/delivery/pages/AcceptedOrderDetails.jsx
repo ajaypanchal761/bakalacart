@@ -23,12 +23,94 @@ import {
 import { 
   getDeliveryOrderPaymentStatus 
 } from "../utils/deliveryWalletState"
+import { deliveryAPI } from "@/lib/api"
+import { Loader2 } from "lucide-react"
 
 export default function AcceptedOrderDetails() {
   const navigate = useNavigate()
   const { orderId } = useParams()
   const [orderStatus, setOrderStatus] = useState(() => getDeliveryOrderStatus(orderId))
   const [paymentStatus, setPaymentStatus] = useState(() => getDeliveryOrderPaymentStatus(orderId))
+  const [orderData, setOrderData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Fetch order details from API
+  useEffect(() => {
+    const fetchOrderDetails = async () => {
+      if (!orderId) return
+      
+      try {
+        setLoading(true)
+        const response = await deliveryAPI.getOrderDetails(orderId)
+        
+        if (response?.data?.success && response?.data?.data) {
+          const order = response.data.data.order || response.data.data
+          
+          // Transform API order to component format
+          const transformedOrder = {
+            id: order.orderId || order._id || orderId,
+            status: orderStatus,
+            deliveryTime: "1 - 5 Min",
+            customer: {
+              name: order.userId?.name || 'Customer',
+              address: order.address?.street || order.address?.formattedAddress || 'Address not available',
+              image: order.userId?.profileImage?.url || "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=100&h=100&fit=crop&q=80"
+            },
+            restaurant: {
+              name: order.restaurantName || order.restaurantId?.name || 'Restaurant',
+              address: order.restaurantId?.address || order.restaurantId?.location?.formattedAddress || 'Address not available',
+              rating: order.restaurantId?.rating || 0
+            },
+            items: (order.items || []).map((item, idx) => ({
+              id: idx + 1,
+              name: item.name || 'Item',
+              price: item.price || 0,
+              variation: item.variation || item.addons?.map(a => a.name).join(', ') || 'Standard',
+              quantity: item.quantity || 1,
+              type: item.isVeg ? 'Veg' : 'Non Veg',
+              image: item.image || "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=100&h=100&fit=crop&q=80"
+            })),
+            cutlery: order.sendCutlery ? "Yes" : "No",
+            note: order.note || '', // Special instructions
+            paymentMethod: {
+              status: paymentStatus,
+              method: order.payment?.method === 'cash' || order.payment?.method === 'cod' ? 'Cash' : 'Online'
+            },
+            billing: {
+              subtotal: order.pricing?.subtotal || 0,
+              deliverymanTips: 0.00,
+              total: order.pricing?.total || 0
+            },
+            statusMessage: getDeliveryStatusMessage(orderStatus).message,
+            statusDescription: getDeliveryStatusMessage(orderStatus).description
+          }
+          
+          setOrderData(transformedOrder)
+        }
+      } catch (error) {
+        console.error('Error fetching order details:', error)
+        // Fallback to default data structure
+        setOrderData({
+          id: orderId,
+          status: orderStatus,
+          deliveryTime: "1 - 5 Min",
+          customer: { name: "Customer", address: "Address", image: "" },
+          restaurant: { name: "Restaurant", address: "Address", rating: 0 },
+          items: [],
+          cutlery: "No",
+          note: '',
+          paymentMethod: { status: paymentStatus, method: "Cash" },
+          billing: { subtotal: 0, deliverymanTips: 0.00, total: 0 },
+          statusMessage: getDeliveryStatusMessage(orderStatus).message,
+          statusDescription: getDeliveryStatusMessage(orderStatus).description
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrderDetails()
+  }, [orderId, orderStatus, paymentStatus])
 
   // Listen for order status updates
   useEffect(() => {
@@ -52,53 +134,13 @@ export default function AcceptedOrderDetails() {
 
   const statusMessage = getDeliveryStatusMessage(orderStatus)
 
-  // Order data matching the image exactly
-  const orderData = {
-    id: orderId || "100102",
-    status: orderStatus,
-    deliveryTime: "1 - 5 Min",
-    customer: {
-      name: "Hshsgs Gsvsgs",
-      address: "R9HC+GHV, Dhaka 1216,",
-      image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=100&h=100&fit=crop&q=80"
-    },
-    restaurant: {
-      name: "Hungry Puppets",
-      address: "House: 00, Road: 00, Tes..",
-      rating: 3.3
-    },
-    items: [
-      {
-        id: 1,
-        name: "Medu Vada",
-        price: 95.00,
-        variation: "Capacity (1 Person)",
-        quantity: 1,
-        type: "Non Veg",
-        image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=100&h=100&fit=crop&q=80"
-      },
-      {
-        id: 2,
-        name: "grilled lemon herb mediterrane...",
-        price: 540.00,
-        variation: "Size (Small)",
-        quantity: 1,
-        type: "Non Veg",
-        image: "https://images.unsplash.com/photo-1544025162-d76694265947?w=100&h=100&fit=crop&q=80"
-      }
-    ],
-    cutlery: "No",
-    paymentMethod: {
-      status: paymentStatus,
-      method: "Cash"
-    },
-    billing: {
-      subtotal: 697.35,
-      deliverymanTips: 0.00,
-      total: 697.35
-    },
-    statusMessage: statusMessage.message,
-    statusDescription: statusMessage.description
+  // Show loading state
+  if (loading || !orderData) {
+    return (
+      <div className="min-h-screen bg-[#f6e9dc] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+      </div>
+    )
   }
 
   return (
@@ -269,6 +311,17 @@ export default function AcceptedOrderDetails() {
           <span className="text-gray-900 font-medium">{orderData.cutlery}</span>
         </div>
 
+        {/* Special Instructions */}
+        {orderData.note && orderData.note.trim() && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h3 className="text-gray-900 font-semibold mb-2 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-yellow-600" />
+              Special Instructions
+            </h3>
+            <p className="text-gray-700 text-sm">{orderData.note}</p>
+          </div>
+        )}
+
         {/* Payment Method */}
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
@@ -403,11 +456,7 @@ export default function AcceptedOrderDetails() {
         )
       })()}
 
-      {/* Bottom Status Bar - Above Navigation */}
-      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 bg-[#ff8100]/80 backdrop-blur-md px-4 py-4 z-[60] shadow-lg md:pb-4">
-        <p className="text-gray-900 font-bold text-center mb-1">{orderData.statusMessage}</p>
-        <p className="text-gray-600 text-sm text-center">{orderData.statusDescription}</p>
-      </div>
+      {/* Bottom Status Bar - Above Navigation - REMOVED */}
     </div>
   )
 }

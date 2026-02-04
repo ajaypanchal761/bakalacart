@@ -328,6 +328,10 @@ export async function findNearestDeliveryBoy(restaurantLat, restaurantLng, resta
  * @returns {Promise<Object|null>} Assignment result or null
  */
 export async function assignOrderToDeliveryBoy(order, restaurantLat, restaurantLng, restaurantId = null) {
+  // DISABLED: Automatic rider assignment is disabled. Orders must be assigned only from Admin Panel.
+  console.log(`⚠️ Automatic assignment disabled for order ${order.orderId}. Order must be assigned from Admin Panel.`);
+  return null;
+  
   try {
     // CRITICAL: Don't assign if order is cancelled
     if (order.status === 'cancelled') {

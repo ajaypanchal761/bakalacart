@@ -1,7 +1,7 @@
 import { useSearchParams, Link, useNavigate } from "react-router-dom"
 import { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import { createPortal } from "react-dom"
-import Lenis from "lenis"
+// Lenis will be lazy loaded
 import { Star, Clock, MapPin, Heart, Search, Tag, Flame, ShoppingBag, ShoppingCart, Mic, SlidersHorizontal, CheckCircle2, Bookmark, BadgePercent, X, ArrowDownUp, Timer, CalendarClock, ShieldCheck, IndianRupee, UtensilsCrossed, Leaf, AlertCircle, Loader2, Plus, Check, Share2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import Footer from "../components/Footer"
@@ -168,6 +168,7 @@ function RestaurantImageCarousel({ images, restaurantName, restaurantId, priorit
                 e.stopPropagation()
                 setCurrentIndex(index)
               }}
+              aria-label={`Go to image ${index + 1}`}
               className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
                 index === currentIndex
                   ? "w-6 bg-white"
@@ -216,7 +217,7 @@ export default function Home() {
   const { openSearch, closeSearch, searchValue, setSearchValue } = useSearchOverlay()
   const { openLocationSelector } = useLocationSelector()
   const { vegMode, setVegMode: setVegModeContext } = useProfile()
-  const [prevVegMode, setPrevVegMode] = useState(vegMode)
+  const [prevVegMode, setPrevVegMode] = useState(() => vegMode)
   const [showVegModePopup, setShowVegModePopup] = useState(false)
   const [showSwitchOffPopup, setShowSwitchOffPopup] = useState(false)
   const [vegModeOption, setVegModeOption] = useState("all") // "all" or "pure-veg"
@@ -340,13 +341,22 @@ export default function Home() {
         setLoadingRealCategories(true)
         const response = await api.get('/categories/public')
         if (response.data.success && response.data.data.categories) {
-          const adminCategories = response.data.data.categories.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            image: cat.image || foodImages[0], // Fallback to default image if not provided
-            slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
-            label: cat.name // For compatibility with existing code
-          }))
+          const adminCategories = response.data.data.categories.map(cat => {
+            // Check if image is valid (not empty, not placeholder, and is a valid URL)
+            const isValidImage = cat.image && 
+                                 cat.image.trim() !== '' && 
+                                 cat.image !== 'https://via.placeholder.com/40' &&
+                                 (cat.image.startsWith('http://') || cat.image.startsWith('https://'))
+            
+            return {
+              id: cat.id,
+              name: cat.name,
+              image: isValidImage ? cat.image : foodImages[0], // Fallback to default image if not provided or empty
+              slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
+              label: cat.name // For compatibility with existing code
+            }
+          })
+          console.log('📸 Categories with images:', adminCategories.map(c => ({ name: c.name, image: c.image })))
           setRealCategories(adminCategories)
         } else {
           setRealCategories([])
@@ -416,24 +426,39 @@ export default function Home() {
     }
   }, [heroBannerImages.length])
 
-  // Lenis smooth scrolling initialization
+  // Lenis smooth scrolling initialization - lazy loaded
   useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-      smoothTouch: true,
-    })
+    let lenisInstance = null
+    let rafId = null
 
-    function raf(time) {
-      lenis.raf(time)
-      requestAnimationFrame(raf)
+    // Lazy load Lenis only when needed (after initial render)
+    const initLenis = async () => {
+      const { initLenis: initLenisUtil, destroyLenis } = await import('@/lib/utils/lazyLenis')
+      lenisInstance = await initLenisUtil({
+        duration: 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        smoothTouch: true,
+      })
     }
 
-    requestAnimationFrame(raf)
+    // Defer Lenis initialization to avoid blocking initial render
+    const timeoutId = setTimeout(() => {
+      initLenis().catch(() => {
+        // Silently fail if Lenis can't be loaded
+      })
+    }, 100)
 
     return () => {
-      lenis.destroy()
+      clearTimeout(timeoutId)
+      if (rafId) {
+        cancelAnimationFrame(rafId)
+      }
+      if (lenisInstance) {
+        import('@/lib/utils/lazyLenis').then(({ destroyLenis }) => {
+          destroyLenis()
+        })
+      }
     }
   }, [])
 
@@ -1240,6 +1265,16 @@ export default function Home() {
                         const firstRestaurant = linkedRestaurants[0]
                         const restaurantSlug = firstRestaurant.slug || firstRestaurant.restaurantId || firstRestaurant._id
                         navigate(`/restaurants/${restaurantSlug}`)
+                      } else if (bannerData?.linkUrl) {
+                        // If banner has a link URL (for offers/promotions), navigate to it
+                        if (bannerData.linkUrl.startsWith('http')) {
+                          window.open(bannerData.linkUrl, '_blank')
+                        } else {
+                          navigate(bannerData.linkUrl)
+                        }
+                      } else if (bannerData?.linkType === 'offer' || bannerData?.linkType === 'promotion') {
+                        // Navigate to offers page if banner type is offer/promotion
+                        navigate('/user/offers')
                       }
                     }}
                   >
@@ -1304,6 +1339,7 @@ export default function Home() {
                               setHeroSearch("")
                             }
                           }}
+                          aria-label="Search for restaurants and food"
                           className="pl-0 pr-2 h-8 sm:h-9 lg:h-11 w-full bg-white dark:bg-[#1a1a1a] border-0 text-sm sm:text-base lg:text-lg font-semibold text-gray-700 dark:text-white focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         />
                         {/* Animated placeholder - same animation as RestaurantDetails highlight offer */}
@@ -1405,6 +1441,7 @@ export default function Home() {
                   sizes="(max-width: 640px) 56px, (max-width: 768px) 80px, 96px"
                   objectFit="cover"
                   placeholder="blur"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               </div>
             </motion.div>
@@ -1433,16 +1470,52 @@ export default function Home() {
                   >
                     <Link to={`/user/category/${category.slug || category.name.toLowerCase().replace(/\s+/g, '-')}`}>
                       <div className="flex flex-col items-center gap-2 w-[62px] sm:w-24 md:w-28">
-                        <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all">
-                          <OptimizedImage
-                            src={category.image}
-                            alt={category.name}
-                            className="w-full h-full bg-white rounded-full"
-                            sizes="(max-width: 640px) 56px, (max-width: 768px) 80px, 96px"
-                            objectFit="cover"
-                            placeholder="blur"
-                            onError={() => {}}
-                          />
+                        <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all bg-gray-100 dark:bg-gray-800">
+                          {category.image && category.image.trim() !== '' && category.image !== 'https://via.placeholder.com/40' ? (
+                            <img
+                              src={category.image}
+                              alt={category.name}
+                              className="w-full h-full object-cover rounded-full"
+                              loading="lazy"
+                              onLoad={() => {
+                                console.log(`✅ Image loaded successfully for category "${category.name}":`, category.image)
+                              }}
+                              onError={(e) => {
+                                console.error(`❌ Image failed to load for category "${category.name}":`, category.image)
+                                console.error('Error details:', e)
+                                // Try fallback image
+                                if (e.target.src !== foodImages[0]) {
+                                  console.log('🔄 Trying fallback image...')
+                                  e.target.src = foodImages[0]
+                                } else {
+                                  // If fallback also fails, show emoji
+                                  console.log('⚠️ Fallback also failed, showing emoji')
+                                  e.target.style.display = 'none'
+                                  if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                    const fallback = document.createElement('div')
+                                    fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                    fallback.textContent = '🍽️'
+                                    e.target.parentElement.appendChild(fallback)
+                                  }
+                                }
+                              }}
+                            />
+                          ) : (
+                            <img
+                              src={foodImages[0]}
+                              alt={category.name}
+                              className="w-full h-full object-cover rounded-full"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                                if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                  const fallback = document.createElement('div')
+                                  fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                  fallback.textContent = '🍽️'
+                                  e.target.parentElement.appendChild(fallback)
+                                }
+                              }}
+                            />
+                          )}
                         </div>
                         <span className="text-xs sm:text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 text-center">
                           {category.name.length > 7 ? `${category.name.slice(0, 7)}...` : category.name}
@@ -1497,16 +1570,47 @@ export default function Home() {
                   >
                     <Link to={`/user/category/${category.slug || category.label.toLowerCase().replace(/\s+/g, '-')}`}>
                       <div className="flex flex-col items-center gap-2 w-[62px] sm:w-24 md:w-28">
-                        <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all">
-                          <OptimizedImage
-                            src={category.imageUrl}
-                            alt={category.label}
-                            className="w-full h-full bg-white rounded-full"
-                            sizes="(max-width: 640px) 56px, (max-width: 768px) 80px, 96px"
-                            objectFit="cover"
-                            placeholder="blur"
-                            onError={() => {}}
-                          />
+                        <div className="w-14 h-14 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full overflow-hidden shadow-md transition-all bg-gray-100 dark:bg-gray-800">
+                          {category.imageUrl && category.imageUrl.trim() !== '' && category.imageUrl !== 'https://via.placeholder.com/40' ? (
+                            <img
+                              src={category.imageUrl}
+                              alt={category.label}
+                              className="w-full h-full object-cover rounded-full"
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                console.error(`❌ Image failed to load for category "${category.label}":`, category.imageUrl)
+                                // Try fallback image
+                                if (e.target.src !== foodImages[0]) {
+                                  e.target.src = foodImages[0]
+                                } else {
+                                  // If fallback also fails, show emoji
+                                  e.target.style.display = 'none'
+                                  if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                    const fallback = document.createElement('div')
+                                    fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                    fallback.textContent = '🍽️'
+                                    e.target.parentElement.appendChild(fallback)
+                                  }
+                                }
+                              }}
+                            />
+                          ) : (
+                            <img
+                              src={foodImages[0]}
+                              alt={category.label}
+                              className="w-full h-full object-cover rounded-full"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                                if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                  const fallback = document.createElement('div')
+                                  fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                  fallback.textContent = '🍽️'
+                                  e.target.parentElement.appendChild(fallback)
+                                }
+                              }}
+                            />
+                          )}
                         </div>
                         <span className="text-xs sm:text-sm md:text-base font-semibold text-gray-800 dark:text-gray-200 text-center">
                           {category.label.length > 7 ? `${category.label.slice(0, 7)}...` : category.label}
@@ -1703,6 +1807,7 @@ export default function Home() {
                           sizes="(max-width: 640px) 80px, (max-width: 768px) 96px, 112px"
                           objectFit="contain"
                           placeholder="blur"
+                          style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }}
                         />
                       </div>
                       <span className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight">
@@ -2695,8 +2800,8 @@ export default function Home() {
                 <div className="grid grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                   {(realCategories.length > 0 ? realCategories : landingCategories).map((category, index) => {
                     const categoryData = realCategories.length > 0 
-                      ? { name: category.name, image: category.image, slug: category.slug }
-                      : { name: category.label, image: category.imageUrl, slug: category.slug }
+                      ? { name: category.name, image: category.image || foodImages[0], slug: category.slug }
+                      : { name: category.label, image: category.imageUrl || foodImages[0], slug: category.slug }
                     
                     return (
                       <motion.div
@@ -2717,16 +2822,48 @@ export default function Home() {
                           className="block"
                         >
                           <div className="flex flex-col items-center gap-2 sm:gap-2.5 cursor-pointer w-full">
-                            <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full overflow-hidden shadow-md transition-all hover:shadow-lg flex-shrink-0">
-                              <OptimizedImage
-                                src={categoryData.image}
-                                alt={categoryData.name}
-                                className="w-full h-full bg-white rounded-full"
-                                sizes="(max-width: 640px) 80px, (max-width: 768px) 96px, 112px"
-                                objectFit="cover"
-                                placeholder="blur"
-                                onError={() => {}}
-                              />
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full overflow-hidden shadow-md transition-all hover:shadow-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800">
+                              {categoryData.image && categoryData.image.trim() !== '' && categoryData.image !== 'https://via.placeholder.com/40' ? (
+                                <img
+                                  src={categoryData.image}
+                                  alt={categoryData.name}
+                                  className="w-full h-full object-cover rounded-full"
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                  crossOrigin="anonymous"
+                                  onError={(e) => {
+                                    console.error(`❌ Image failed to load for category "${categoryData.name}":`, categoryData.image)
+                                    // Try fallback image
+                                    if (e.target.src !== foodImages[0]) {
+                                      e.target.src = foodImages[0]
+                                    } else {
+                                      // If fallback also fails, show emoji
+                                      e.target.style.display = 'none'
+                                      if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                        const fallback = document.createElement('div')
+                                        fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                        fallback.textContent = '🍽️'
+                                        e.target.parentElement.appendChild(fallback)
+                                      }
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <img
+                                  src={foodImages[0]}
+                                  alt={categoryData.name}
+                                  className="w-full h-full object-cover rounded-full"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none'
+                                    if (!e.target.parentElement.querySelector('.fallback-emoji')) {
+                                      const fallback = document.createElement('div')
+                                      fallback.className = 'fallback-emoji w-full h-full flex items-center justify-center text-4xl'
+                                      fallback.textContent = '🍽️'
+                                      e.target.parentElement.appendChild(fallback)
+                                    }
+                                  }}
+                                />
+                              )}
                             </div>
                             <span className="text-xs sm:text-sm font-medium text-gray-800 dark:text-gray-200 text-center leading-tight px-1 break-words w-full min-w-0">
                               {categoryData.name}

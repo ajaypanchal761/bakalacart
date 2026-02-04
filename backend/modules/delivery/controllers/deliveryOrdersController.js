@@ -656,7 +656,7 @@ export const acceptOrder = asyncHandler(async (req, res) => {
     // Calculate estimated earnings based on delivery distance
     let estimatedEarnings = null;
     try {
-      const DeliveryBoyCommission = (await import('../../admin/models/DeliveryBoyCommission.js')).default;
+      // Use the statically imported DeliveryBoyCommission
       const commissionResult = await DeliveryBoyCommission.calculateCommission(deliveryDistance);
       
       // Validate commission result

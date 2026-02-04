@@ -1,115 +1,134 @@
+import { lazy, Suspense } from "react"
 import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import AuthRedirect from "@/components/AuthRedirect"
 
-import UserRouter from "@/module/user/components/UserRouter"
-import HomePage from "@/module/usermain/pages/HomePage"
-import CategoriesPage from "@/module/usermain/pages/CategoriesPage"
-import CategoryFoodsPage from "@/module/usermain/pages/CategoryFoodsPage"
-import FoodDetailPage from "@/module/usermain/pages/FoodDetailPage"
-import CartPage from "@/module/usermain/pages/CartPage"
-import CheckoutPage from "@/module/usermain/pages/CheckoutPage"
-import PaymentPage from "@/module/usermain/pages/PaymentPage"
-import OrdersPage from "@/module/usermain/pages/OrdersPage"
-import OrderDetailsPage from "@/module/usermain/pages/OrderDetailsPage"
-import WishlistPage from "@/module/usermain/pages/WishlistPage"
+// Loading component for lazy-loaded routes
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+  </div>
+)
 
-import RestaurantOrdersPage from "@/module/restaurant/pages/OrdersPage"
-import AllOrdersPage from "@/module/restaurant/pages/AllOrdersPage"
-import RestaurantDetailsPage from "@/module/restaurant/pages/RestaurantDetailsPage"
-import EditRestaurantPage from "@/module/restaurant/pages/EditRestaurantPage"
-import FoodDetailsPage from "@/module/restaurant/pages/FoodDetailsPage"
-import EditFoodPage from "@/module/restaurant/pages/EditFoodPage"
-import AllFoodPage from "@/module/restaurant/pages/AllFoodPage"
-import WalletPage from "@/module/restaurant/pages/WalletPage"
-import RestaurantNotifications from "@/module/restaurant/pages/Notifications"
-import OrderDetails from "@/module/restaurant/pages/OrderDetails"
-import OrdersMain from "@/module/restaurant/pages/OrdersMain"
-import RestaurantOnboarding from "@/module/restaurant/pages/Onboarding"
+// Helper to ensure dynamic imports work with Vite aliases
+const lazyImport = (importFn) => lazy(() => {
+  try {
+    return importFn()
+  } catch (error) {
+    console.error('Dynamic import error:', error)
+    throw error
+  }
+})
 
-import RestaurantSignIn from "@/module/restaurant/pages/auth/SignIn"
-import RestaurantLogin from "@/module/restaurant/pages/auth/Login"
-import RestaurantSignup from "@/module/restaurant/pages/auth/Signup"
-import RestaurantSignupEmail from "@/module/restaurant/pages/auth/SignupEmail"
-import RestaurantForgotPassword from "@/module/restaurant/pages/auth/ForgotPassword"
-import RestaurantOTP from "@/module/restaurant/pages/auth/OTP"
-import RestaurantGoogleCallback from "@/module/restaurant/pages/auth/GoogleCallback"
-import RestaurantWelcome from "@/module/restaurant/pages/auth/Welcome"
+// Lazy load all route components for code splitting
+const UserRouter = lazyImport(() => import("@/module/user/components/UserRouter"))
+const HomePage = lazy(() => import("@/module/usermain/pages/HomePage"))
+const CategoriesPage = lazy(() => import("@/module/usermain/pages/CategoriesPage"))
+const CategoryFoodsPage = lazy(() => import("@/module/usermain/pages/CategoryFoodsPage"))
+const FoodDetailPage = lazy(() => import("@/module/usermain/pages/FoodDetailPage"))
+const CartPage = lazy(() => import("@/module/usermain/pages/CartPage"))
+const CheckoutPage = lazy(() => import("@/module/usermain/pages/CheckoutPage"))
+const PaymentPage = lazy(() => import("@/module/usermain/pages/PaymentPage"))
+const OrdersPage = lazy(() => import("@/module/usermain/pages/OrdersPage"))
+const OrderDetailsPage = lazy(() => import("@/module/usermain/pages/OrderDetailsPage"))
+const WishlistPage = lazy(() => import("@/module/usermain/pages/WishlistPage"))
 
-import AdvertisementsPage from "@/module/restaurant/pages/AdvertisementsPage"
-import AdDetailsPage from "@/module/restaurant/pages/AdDetailsPage"
-import NewAdvertisementPage from "@/module/restaurant/pages/NewAdvertisementPage"
-import EditAdvertisementPage from "@/module/restaurant/pages/EditAdvertisementPage"
-import CouponListPage from "@/module/restaurant/pages/CouponListPage"
-import AddCouponPage from "@/module/restaurant/pages/AddCouponPage"
-import EditCouponPage from "@/module/restaurant/pages/EditCouponPage"
-import ReviewsPage from "@/module/restaurant/pages/ReviewsPage"
-import UpdateReplyPage from "@/module/restaurant/pages/UpdateReplyPage"
-import SettingsPage from "@/module/restaurant/pages/SettingsPage"
-import PrivacyPolicyPage from "@/module/restaurant/pages/PrivacyPolicyPage"
-import TermsAndConditionsPage from "@/module/restaurant/pages/TermsAndConditionsPage"
-import RestaurantConfigPage from "@/module/restaurant/pages/RestaurantConfigPage"
-import RestaurantCategoriesPage from "@/module/restaurant/pages/RestaurantCategoriesPage"
-import MenuCategoriesPage from "@/module/restaurant/pages/MenuCategoriesPage"
-import BusinessPlanPage from "@/module/restaurant/pages/BusinessPlanPage"
-import ConversationListPage from "@/module/restaurant/pages/ConversationListPage"
-import ChatDetailPage from "@/module/restaurant/pages/ChatDetailPage"
-import RestaurantStatus from "@/module/restaurant/pages/RestaurantStatus"
-import ExploreMore from "@/module/restaurant/pages/ExploreMore"
-import DeliverySettings from "@/module/restaurant/pages/DeliverySettings"
-import RushHour from "@/module/restaurant/pages/RushHour"
-import SwitchOutlet from "@/module/restaurant/pages/SwitchOutlet"
-import OutletTimings from "@/module/restaurant/pages/OutletTimings"
-import DaySlots from "@/module/restaurant/pages/DaySlots"
-import OutletInfo from "@/module/restaurant/pages/OutletInfo"
-import RatingsReviews from "@/module/restaurant/pages/RatingsReviews"
-import ContactDetails from "@/module/restaurant/pages/ContactDetails"
-import EditOwner from "@/module/restaurant/pages/EditOwner"
-import InviteUser from "@/module/restaurant/pages/InviteUser"
-import EditCuisines from "@/module/restaurant/pages/EditCuisines"
-import EditRestaurantAddress from "@/module/restaurant/pages/EditRestaurantAddress"
-import Inventory from "@/module/restaurant/pages/Inventory"
-import Feedback from "@/module/restaurant/pages/Feedback"
-import ShareFeedback from "@/module/restaurant/pages/ShareFeedback"
-import DishRatings from "@/module/restaurant/pages/DishRatings"
-import HelpCentre from "@/module/restaurant/pages/HelpCentre"
-import FssaiDetails from "@/module/restaurant/pages/FssaiDetails"
-import FssaiUpdate from "@/module/restaurant/pages/FssaiUpdate"
-import Hyperpure from "@/module/restaurant/pages/Hyperpure"
-import HubGrowth from "@/module/restaurant/pages/HubGrowth"
-import CreateOffers from "@/module/restaurant/pages/CreateOffers"
-import ChooseDiscountType from "@/module/restaurant/pages/ChooseDiscountType"
-import ChooseMenuDiscountType from "@/module/restaurant/pages/ChooseMenuDiscountType"
-import CreatePercentageDiscount from "@/module/restaurant/pages/CreatePercentageDiscount"
-import CreateFreebies from "@/module/restaurant/pages/CreateFreebies"
-import FreebiesTiming from "@/module/restaurant/pages/FreebiesTiming"
-import CreatePercentageMenuDiscount from "@/module/restaurant/pages/CreatePercentageMenuDiscount"
-import CreateFlatPriceMenuDiscount from "@/module/restaurant/pages/CreateFlatPriceMenuDiscount"
-import CreateBOGOMenuDiscount from "@/module/restaurant/pages/CreateBOGOMenuDiscount"
-import MenuDiscountTiming from "@/module/restaurant/pages/MenuDiscountTiming"
-import HubMenu from "@/module/restaurant/pages/HubMenu"
-import ItemDetailsPage from "@/module/restaurant/pages/ItemDetailsPage"
-import HubFinance from "@/module/restaurant/pages/HubFinance"
-import FinanceDetailsPage from "@/module/restaurant/pages/FinanceDetailsPage"
-import WithdrawalHistoryPage from "@/module/restaurant/pages/WithdrawalHistoryPage"
-import PhoneNumbersPage from "@/module/restaurant/pages/PhoneNumbersPage"
-import DownloadReport from "@/module/restaurant/pages/DownloadReport"
-import ToHub from "@/module/restaurant/pages/ToHub"
-import ManageOutlets from "@/module/restaurant/pages/ManageOutlets"
-import UpdateBankDetails from "@/module/restaurant/pages/UpdateBankDetails"
-import ZoneSetup from "@/module/restaurant/pages/ZoneSetup"
+const RestaurantOrdersPage = lazy(() => import("@/module/restaurant/pages/OrdersPage"))
+const AllOrdersPage = lazy(() => import("@/module/restaurant/pages/AllOrdersPage"))
+const RestaurantDetailsPage = lazy(() => import("@/module/restaurant/pages/RestaurantDetailsPage"))
+const EditRestaurantPage = lazy(() => import("@/module/restaurant/pages/EditRestaurantPage"))
+const FoodDetailsPage = lazy(() => import("@/module/restaurant/pages/FoodDetailsPage"))
+const EditFoodPage = lazy(() => import("@/module/restaurant/pages/EditFoodPage"))
+const AllFoodPage = lazy(() => import("@/module/restaurant/pages/AllFoodPage"))
+const WalletPage = lazy(() => import("@/module/restaurant/pages/WalletPage"))
+const RestaurantNotifications = lazy(() => import("@/module/restaurant/pages/Notifications"))
+const OrderDetails = lazy(() => import("@/module/restaurant/pages/OrderDetails"))
+const OrdersMain = lazy(() => import("@/module/restaurant/pages/OrdersMain"))
+const RestaurantOnboarding = lazy(() => import("@/module/restaurant/pages/Onboarding"))
 
-import AdminRouter from "@/module/admin/components/AdminRouter"
-import AdminLogin from "@/module/admin/pages/auth/AdminLogin"
-import AdminSignup from "@/module/admin/pages/auth/AdminSignup"
-import AdminForgotPassword from "@/module/admin/pages/auth/AdminForgotPassword"
-import DeliveryRouter from "@/module/delivery/components/DeliveryRouter"
-import DeliverySignIn from "@/module/delivery/pages/auth/SignIn"
-import DeliverySignup from "@/module/delivery/pages/auth/Signup"
-import DeliveryOTP from "@/module/delivery/pages/auth/OTP"
-import DeliverySignupStep1 from "@/module/delivery/pages/auth/SignupStep1"
-import DeliverySignupStep2 from "@/module/delivery/pages/auth/SignupStep2"
-import DeliveryWelcome from "@/module/delivery/pages/auth/Welcome"
+const RestaurantSignIn = lazy(() => import("@/module/restaurant/pages/auth/SignIn"))
+const RestaurantLogin = lazy(() => import("@/module/restaurant/pages/auth/Login"))
+const RestaurantSignup = lazy(() => import("@/module/restaurant/pages/auth/Signup"))
+const RestaurantSignupEmail = lazy(() => import("@/module/restaurant/pages/auth/SignupEmail"))
+const RestaurantForgotPassword = lazy(() => import("@/module/restaurant/pages/auth/ForgotPassword"))
+const RestaurantOTP = lazy(() => import("@/module/restaurant/pages/auth/OTP"))
+const RestaurantGoogleCallback = lazy(() => import("@/module/restaurant/pages/auth/GoogleCallback"))
+const RestaurantWelcome = lazy(() => import("@/module/restaurant/pages/auth/Welcome"))
+
+const AdvertisementsPage = lazy(() => import("@/module/restaurant/pages/AdvertisementsPage"))
+const AdDetailsPage = lazy(() => import("@/module/restaurant/pages/AdDetailsPage"))
+const NewAdvertisementPage = lazy(() => import("@/module/restaurant/pages/NewAdvertisementPage"))
+const EditAdvertisementPage = lazy(() => import("@/module/restaurant/pages/EditAdvertisementPage"))
+const CouponListPage = lazy(() => import("@/module/restaurant/pages/CouponListPage"))
+const AddCouponPage = lazy(() => import("@/module/restaurant/pages/AddCouponPage"))
+const EditCouponPage = lazy(() => import("@/module/restaurant/pages/EditCouponPage"))
+const ReviewsPage = lazy(() => import("@/module/restaurant/pages/ReviewsPage"))
+const UpdateReplyPage = lazy(() => import("@/module/restaurant/pages/UpdateReplyPage"))
+const SettingsPage = lazy(() => import("@/module/restaurant/pages/SettingsPage"))
+const PrivacyPolicyPage = lazy(() => import("@/module/restaurant/pages/PrivacyPolicyPage"))
+const TermsAndConditionsPage = lazy(() => import("@/module/restaurant/pages/TermsAndConditionsPage"))
+const RestaurantConfigPage = lazy(() => import("@/module/restaurant/pages/RestaurantConfigPage"))
+const RestaurantCategoriesPage = lazy(() => import("@/module/restaurant/pages/RestaurantCategoriesPage"))
+const MenuCategoriesPage = lazy(() => import("@/module/restaurant/pages/MenuCategoriesPage"))
+const BusinessPlanPage = lazy(() => import("@/module/restaurant/pages/BusinessPlanPage"))
+const ConversationListPage = lazy(() => import("@/module/restaurant/pages/ConversationListPage"))
+const ChatDetailPage = lazy(() => import("@/module/restaurant/pages/ChatDetailPage"))
+const RestaurantStatus = lazy(() => import("@/module/restaurant/pages/RestaurantStatus"))
+const ExploreMore = lazy(() => import("@/module/restaurant/pages/ExploreMore"))
+const DeliverySettings = lazy(() => import("@/module/restaurant/pages/DeliverySettings"))
+const RushHour = lazy(() => import("@/module/restaurant/pages/RushHour"))
+const SwitchOutlet = lazy(() => import("@/module/restaurant/pages/SwitchOutlet"))
+const OutletTimings = lazy(() => import("@/module/restaurant/pages/OutletTimings"))
+const DaySlots = lazy(() => import("@/module/restaurant/pages/DaySlots"))
+const OutletInfo = lazy(() => import("@/module/restaurant/pages/OutletInfo"))
+const RatingsReviews = lazy(() => import("@/module/restaurant/pages/RatingsReviews"))
+const ContactDetails = lazy(() => import("@/module/restaurant/pages/ContactDetails"))
+const EditOwner = lazy(() => import("@/module/restaurant/pages/EditOwner"))
+const InviteUser = lazy(() => import("@/module/restaurant/pages/InviteUser"))
+const EditCuisines = lazy(() => import("@/module/restaurant/pages/EditCuisines"))
+const EditRestaurantAddress = lazy(() => import("@/module/restaurant/pages/EditRestaurantAddress"))
+const Inventory = lazy(() => import("@/module/restaurant/pages/Inventory"))
+const Feedback = lazy(() => import("@/module/restaurant/pages/Feedback"))
+const ShareFeedback = lazy(() => import("@/module/restaurant/pages/ShareFeedback"))
+const DishRatings = lazy(() => import("@/module/restaurant/pages/DishRatings"))
+const HelpCentre = lazy(() => import("@/module/restaurant/pages/HelpCentre"))
+const FssaiDetails = lazy(() => import("@/module/restaurant/pages/FssaiDetails"))
+const FssaiUpdate = lazy(() => import("@/module/restaurant/pages/FssaiUpdate"))
+const Hyperpure = lazy(() => import("@/module/restaurant/pages/Hyperpure"))
+const HubGrowth = lazy(() => import("@/module/restaurant/pages/HubGrowth"))
+const CreateOffers = lazy(() => import("@/module/restaurant/pages/CreateOffers"))
+const ChooseDiscountType = lazy(() => import("@/module/restaurant/pages/ChooseDiscountType"))
+const ChooseMenuDiscountType = lazy(() => import("@/module/restaurant/pages/ChooseMenuDiscountType"))
+const CreatePercentageDiscount = lazy(() => import("@/module/restaurant/pages/CreatePercentageDiscount"))
+const CreateFreebies = lazy(() => import("@/module/restaurant/pages/CreateFreebies"))
+const FreebiesTiming = lazy(() => import("@/module/restaurant/pages/FreebiesTiming"))
+const CreatePercentageMenuDiscount = lazy(() => import("@/module/restaurant/pages/CreatePercentageMenuDiscount"))
+const CreateFlatPriceMenuDiscount = lazy(() => import("@/module/restaurant/pages/CreateFlatPriceMenuDiscount"))
+const CreateBOGOMenuDiscount = lazy(() => import("@/module/restaurant/pages/CreateBOGOMenuDiscount"))
+const MenuDiscountTiming = lazy(() => import("@/module/restaurant/pages/MenuDiscountTiming"))
+const HubMenu = lazy(() => import("@/module/restaurant/pages/HubMenu"))
+const ItemDetailsPage = lazy(() => import("@/module/restaurant/pages/ItemDetailsPage"))
+const HubFinance = lazy(() => import("@/module/restaurant/pages/HubFinance"))
+const FinanceDetailsPage = lazy(() => import("@/module/restaurant/pages/FinanceDetailsPage"))
+const WithdrawalHistoryPage = lazy(() => import("@/module/restaurant/pages/WithdrawalHistoryPage"))
+const PhoneNumbersPage = lazy(() => import("@/module/restaurant/pages/PhoneNumbersPage"))
+const DownloadReport = lazy(() => import("@/module/restaurant/pages/DownloadReport"))
+const ToHub = lazy(() => import("@/module/restaurant/pages/ToHub"))
+const ManageOutlets = lazy(() => import("@/module/restaurant/pages/ManageOutlets"))
+const UpdateBankDetails = lazy(() => import("@/module/restaurant/pages/UpdateBankDetails"))
+const ZoneSetup = lazy(() => import("@/module/restaurant/pages/ZoneSetup"))
+
+const AdminRouter = lazy(() => import("@/module/admin/components/AdminRouter"))
+const AdminLogin = lazy(() => import("@/module/admin/pages/auth/AdminLogin"))
+const AdminSignup = lazy(() => import("@/module/admin/pages/auth/AdminSignup"))
+const AdminForgotPassword = lazy(() => import("@/module/admin/pages/auth/AdminForgotPassword"))
+const DeliveryRouter = lazy(() => import("@/module/delivery/components/DeliveryRouter"))
+const DeliverySignIn = lazy(() => import("@/module/delivery/pages/auth/SignIn"))
+const DeliverySignup = lazy(() => import("@/module/delivery/pages/auth/Signup"))
+const DeliveryOTP = lazy(() => import("@/module/delivery/pages/auth/OTP"))
+const DeliverySignupStep1 = lazy(() => import("@/module/delivery/pages/auth/SignupStep1"))
+const DeliverySignupStep2 = lazy(() => import("@/module/delivery/pages/auth/SignupStep2"))
+const DeliveryWelcome = lazy(() => import("@/module/delivery/pages/auth/Welcome"))
 
 function UserPathRedirect() {
   const location = useLocation()
@@ -119,7 +138,8 @@ function UserPathRedirect() {
 
 export default function App() {
   return (
-    <Routes>
+    <Suspense fallback={<LoadingFallback />}>
+      <Routes>
       <Route path="/user" element={<Navigate to="/" replace />} />
       <Route path="/user/*" element={<UserPathRedirect />} />
       {/* Removed /routes route - Home should be accessed through UserRouter */}
@@ -824,6 +844,7 @@ export default function App() {
         path="/*" 
         element={<UserRouter />}
       />
-    </Routes>
+      </Routes>
+    </Suspense>
   )
 }

@@ -4,80 +4,87 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import './index.css'
 import App from './App.jsx'
-import { getGoogleMapsApiKey } from './lib/utils/googleMapsApiKey.js'
-import { loadBusinessSettings } from './lib/utils/businessSettings.js'
-
-// Load business settings on app start (favicon, title)
-// Silently handle errors - this is not critical for app functionality
-loadBusinessSettings().catch(() => {
-  // Silently fail - settings will load when admin is authenticated
-})
 
 // Global flag to track Google Maps loading state
 window.__googleMapsLoading = window.__googleMapsLoading || false;
 window.__googleMapsLoaded = window.__googleMapsLoaded || false;
 
-// Load Google Maps API dynamically from backend database
-// Only load if not already loaded to prevent multiple loads
-(async () => {
-  // Check if Google Maps is already loaded
-  if (window.google && window.google.maps) {
-    console.log('✅ Google Maps already loaded');
-    window.__googleMapsLoaded = true;
-    return;
+// Defer all non-critical initialization until after React renders
+// This prevents blocking the initial render
+const initializeNonCriticalFeatures = () => {
+  // Use requestIdleCallback if available, otherwise setTimeout
+  const defer = (callback) => {
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(callback, { timeout: 2000 })
+    } else {
+      setTimeout(callback, 0)
+    }
   }
-  
-  // Check if script is already being loaded
-  const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-  if (existingScript) {
-    console.log('✅ Google Maps script already exists, waiting for it to load...');
-    window.__googleMapsLoading = true;
-    
-    // Wait for script to load
-    existingScript.addEventListener('load', () => {
+
+  // Load business settings (non-blocking, low priority)
+  defer(() => {
+    import('./lib/utils/businessSettings.js').then(({ loadBusinessSettings }) => {
+      loadBusinessSettings().catch(() => {
+        // Silently fail - settings will load when admin is authenticated
+      })
+    })
+  })
+
+  // Load Google Maps API (non-blocking, deferred)
+  defer(() => {
+    // Check if Google Maps is already loaded
+    if (window.google && window.google.maps) {
       window.__googleMapsLoaded = true;
-      window.__googleMapsLoading = false;
-    });
-    return;
-  }
-  
-  // Check if Loader is already loading
-  if (window.__googleMapsLoading) {
-    console.log('✅ Google Maps is already being loaded, waiting...');
-    return;
-  }
-  
-  window.__googleMapsLoading = true;
-  
-  try {
-    const googleMapsApiKey = await getGoogleMapsApiKey()
-    if (googleMapsApiKey) {
-      const script = document.createElement('script')
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,geometry,drawing`
-      script.async = true
-      script.defer = true
-      script.onload = () => {
-        console.log('✅ Google Maps API loaded via script tag');
+      return;
+    }
+    
+    // Check if script is already being loaded
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+      window.__googleMapsLoading = true;
+      existingScript.addEventListener('load', () => {
         window.__googleMapsLoaded = true;
         window.__googleMapsLoading = false;
-      }
-      script.onerror = () => {
-        console.error('❌ Failed to load Google Maps API script');
-        window.__googleMapsLoading = false;
-      }
-      document.head.appendChild(script)
-    } else {
-      window.__googleMapsLoading = false;
+      });
+      return;
     }
-  } catch (error) {
-    console.warn('Failed to load Google Maps API key:', error.message)
-    window.__googleMapsLoading = false;
-    // No fallback - Google Maps will not load if key is not in database
-    console.warn('⚠️ Google Maps API key not available. Please set it in Admin → System → Environment Variables');
-  }
-})()
+    
+    // Check if Loader is already loading
+    if (window.__googleMapsLoading) {
+      return;
+    }
+    
+    window.__googleMapsLoading = true;
+    
+    // Load Google Maps API key and script asynchronously
+    import('./lib/utils/googleMapsApiKey.js').then(({ getGoogleMapsApiKey }) => {
+      getGoogleMapsApiKey()
+        .then((googleMapsApiKey) => {
+          if (googleMapsApiKey) {
+            const script = document.createElement('script')
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,geometry,drawing`
+            script.async = true
+            script.defer = true
+            script.onload = () => {
+              window.__googleMapsLoaded = true;
+              window.__googleMapsLoading = false;
+            }
+            script.onerror = () => {
+              window.__googleMapsLoading = false;
+            }
+            document.head.appendChild(script)
+          } else {
+            window.__googleMapsLoading = false;
+          }
+        })
+        .catch(() => {
+          window.__googleMapsLoading = false;
+        })
+    })
+  })
+}
 
-// Apply theme on app initialization
+// Apply theme on app initialization (synchronous, fast)
 const savedTheme = localStorage.getItem('appTheme') || 'light'
 if (savedTheme === 'dark') {
   document.documentElement.classList.add('dark')
@@ -85,12 +92,14 @@ if (savedTheme === 'dark') {
   document.documentElement.classList.remove('dark')
 }
 
-// Suppress browser extension errors
-const originalError = console.error
-console.error = (...args) => {
-  const errorStr = args.join(' ')
-  
-  // Suppress browser extension errors
+// Suppress browser extension errors (defer to avoid blocking render)
+// Use requestIdleCallback or setTimeout to defer this setup
+const setupErrorSuppression = () => {
+  const originalError = console.error
+  console.error = (...args) => {
+    const errorStr = args.join(' ')
+    
+    // Suppress browser extension errors
   if (
     typeof args[0] === 'string' &&
     (args[0].includes('chrome-extension://') ||
@@ -188,51 +197,72 @@ console.error = (...args) => {
     return
   }
 
-  originalError.apply(console, args)
+    originalError.apply(console, args)
+  }
+  
+  // Handle unhandled promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    const error = event.reason || event
+    const errorMsg = error?.message || String(error) || ''
+    const errorName = error?.name || ''
+    const errorStr = String(error) || ''
+    
+    // Suppress geolocation errors (permission denied, timeout, etc.)
+    if (
+      errorMsg.includes('Timeout expired') ||
+      errorMsg.includes('User denied Geolocation') ||
+      errorMsg.includes('permission denied') ||
+      errorName === 'GeolocationPositionError' ||
+      (error?.code === 3 && errorMsg.includes('timeout')) ||
+      (error?.code === 1 && (errorMsg.includes('location') || errorMsg.includes('geolocation')))
+    ) {
+      event.preventDefault() // Prevent error from showing in console
+      return
+    }
+    
+    // Suppress refund processing errors that are already handled by the component
+    // These errors are logged with console.error in the component's catch block
+    if (
+      errorStr.includes('Error processing refund') ||
+      (errorName === 'AxiosError' && errorMsg.includes('refund'))
+    ) {
+      // Error is already handled by the component, just prevent unhandled rejection
+      event.preventDefault()
+      return
+    }
+  })
 }
 
-// Handle unhandled promise rejections
-window.addEventListener('unhandledrejection', (event) => {
-  const error = event.reason || event
-  const errorMsg = error?.message || String(error) || ''
-  const errorName = error?.name || ''
-  const errorStr = String(error) || ''
-  
-  // Suppress geolocation errors (permission denied, timeout, etc.)
-  if (
-    errorMsg.includes('Timeout expired') ||
-    errorMsg.includes('User denied Geolocation') ||
-    errorMsg.includes('permission denied') ||
-    errorName === 'GeolocationPositionError' ||
-    (error?.code === 3 && errorMsg.includes('timeout')) ||
-    (error?.code === 1 && (errorMsg.includes('location') || errorMsg.includes('geolocation')))
-  ) {
-    event.preventDefault() // Prevent error from showing in console
-    return
-  }
-  
-  // Suppress refund processing errors that are already handled by the component
-  // These errors are logged with console.error in the component's catch block
-  if (
-    errorStr.includes('Error processing refund') ||
-    (errorName === 'AxiosError' && errorMsg.includes('refund'))
-  ) {
-    // Error is already handled by the component, just prevent unhandled rejection
-    event.preventDefault()
-    return
-  }
-})
+// Setup error suppression after initial render (non-blocking)
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(setupErrorSuppression, { timeout: 1000 })
+} else {
+  setTimeout(setupErrorSuppression, 0)
+}
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {
   throw new Error('Root element not found')
 }
 
-createRoot(rootElement).render(
+// Render React immediately - don't wait for anything
+// StrictMode disabled in production to reduce double renders and improve performance
+const AppWrapper = import.meta.env.PROD ? (
+  <BrowserRouter>
+    <App />
+    <Toaster position="top-center" richColors offset="80px" />
+  </BrowserRouter>
+) : (
   <StrictMode>
     <BrowserRouter>
       <App />
       <Toaster position="top-center" richColors offset="80px" />
     </BrowserRouter>
-  </StrictMode>,
+  </StrictMode>
 )
+
+createRoot(rootElement).render(AppWrapper)
+
+// Initialize non-critical features after React has rendered
+// This ensures FCP and LCP are not blocked
+initializeNonCriticalFeatures()

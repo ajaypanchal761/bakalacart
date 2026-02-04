@@ -71,6 +71,12 @@ export const sidebarMenuData = [
     items: [
       {
         type: "link",
+        label: "Restaurant Order",
+        path: "/admin/restaurant-orders",
+        icon: "Utensils",
+      },
+      {
+        type: "link",
         label: "Order Assign",
         path: "/admin/order-assign",
         icon: "Package",

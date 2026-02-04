@@ -30,8 +30,6 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { useOrders } from "../../context/OrdersContext"
 import { useProfile } from "../../context/ProfileContext"
-import { useLocation as useUserLocation } from "../../hooks/useLocation"
-import DeliveryTrackingMap from "../../components/DeliveryTrackingMap"
 import { orderAPI, restaurantAPI } from "@/lib/api"
 import circleIcon from "@/assets/circleicon.png"
 
@@ -70,121 +68,6 @@ const AnimatedCheckmark = ({ delay = 0 }) => (
   </motion.svg>
 )
 
-// Real Delivery Map Component with User Live Location
-const DeliveryMap = ({ orderId, order, isVisible }) => {
-  const { location: userLocation } = useUserLocation() // Get user's live location
-  
-  // Get coordinates from order or use defaults (Indore)
-  const getRestaurantCoords = () => {
-    console.log('🔍 Getting restaurant coordinates from order:', {
-      hasOrder: !!order,
-      restaurantLocation: order?.restaurantLocation,
-      coordinates: order?.restaurantLocation?.coordinates,
-      restaurantId: order?.restaurantId,
-      restaurantIdLocation: order?.restaurantId?.location,
-      restaurantIdCoordinates: order?.restaurantId?.location?.coordinates
-    });
-    
-    // Try multiple sources for restaurant coordinates
-    let coords = null;
-    
-    // Priority 1: restaurantLocation.coordinates (already extracted in transformed order)
-    if (order?.restaurantLocation?.coordinates && 
-        Array.isArray(order.restaurantLocation.coordinates) && 
-        order.restaurantLocation.coordinates.length >= 2) {
-      coords = order.restaurantLocation.coordinates;
-      console.log('✅ Using restaurantLocation.coordinates:', coords);
-    }
-    // Priority 2: restaurantId.location.coordinates (if restaurantId is populated)
-    else if (order?.restaurantId?.location?.coordinates && 
-             Array.isArray(order.restaurantId.location.coordinates) && 
-             order.restaurantId.location.coordinates.length >= 2) {
-      coords = order.restaurantId.location.coordinates;
-      console.log('✅ Using restaurantId.location.coordinates:', coords);
-    }
-    // Priority 3: restaurantId.location with latitude/longitude
-    else if (order?.restaurantId?.location?.latitude && order?.restaurantId?.location?.longitude) {
-      coords = [order.restaurantId.location.longitude, order.restaurantId.location.latitude];
-      console.log('✅ Using restaurantId.location (lat/lng):', coords);
-    }
-    
-    if (coords && coords.length >= 2) {
-      // GeoJSON format is [longitude, latitude]
-      const result = {
-        lat: coords[1], // Latitude is second element
-        lng: coords[0]  // Longitude is first element
-      };
-      console.log('✅ Final restaurant coordinates (lat, lng):', result, 'from GeoJSON:', coords);
-      return result;
-    }
-    
-    console.warn('⚠️ Restaurant coordinates not found, using default Indore coordinates');
-    // Default Indore coordinates
-    return { lat: 22.7196, lng: 75.8577 };
-  };
-
-  const getCustomerCoords = () => {
-    if (order?.address?.coordinates) {
-      return {
-        lat: order.address.coordinates[1],
-        lng: order.address.coordinates[0]
-      };
-    }
-    // Default Indore coordinates
-    return { lat: 22.7196, lng: 75.8577 };
-  };
-
-  // Get user's live location coordinates
-  const getUserLiveCoords = () => {
-    if (userLocation?.latitude && userLocation?.longitude) {
-      return {
-        lat: userLocation.latitude,
-        lng: userLocation.longitude
-      };
-    }
-    return null;
-  };
-
-  const restaurantCoords = getRestaurantCoords();
-  const customerCoords = getCustomerCoords();
-  const userLiveCoords = getUserLiveCoords();
-
-  // Delivery boy data
-  const deliveryBoyData = order?.deliveryPartner ? {
-    name: order.deliveryPartner.name || 'Delivery Partner',
-    avatar: order.deliveryPartner.avatar || null
-  } : null;
-
-  if (!isVisible || !orderId || !order) {
-    return (
-      <motion.div 
-        className="relative h-64 bg-gradient-to-b from-gray-100 to-gray-200"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      />
-    );
-  }
-
-  return (
-    <motion.div 
-      className="relative h-64 w-full"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <DeliveryTrackingMap
-        orderId={orderId}
-        restaurantCoords={restaurantCoords}
-        customerCoords={customerCoords}
-        userLiveCoords={userLiveCoords}
-        userLocationAccuracy={userLocation?.accuracy}
-        deliveryBoyData={deliveryBoyData}
-        order={order}
-      />
-    </motion.div>
-  );
-}
 
 // Section item component
 const SectionItem = ({ icon: Icon, title, subtitle, onClick, showArrow = true, rightContent }) => (
@@ -525,23 +408,9 @@ export default function OrderTracking() {
   }, [])
 
   const handleCancelOrder = () => {
-    // Check if order can be cancelled (only Razorpay orders that aren't delivered/cancelled)
-    if (!order) return;
-    
-    if (order.status === 'cancelled') {
-      toast.error('Order is already cancelled');
-      return;
-    }
-    
-    if (order.status === 'delivered') {
-      toast.error('Cannot cancel a delivered order');
-      return;
-    }
-    
-    // Allow cancellation for all payment methods (Razorpay, COD, Wallet)
-    // Only restrict if order is already cancelled or delivered (checked above)
-    
-    setShowCancelDialog(true);
+    // DISABLED: Users cannot cancel orders
+    toast.error('Order cancellation is not available. Please contact support for assistance.');
+    return;
   };
 
   const handleConfirmCancel = async () => {
@@ -848,13 +717,6 @@ export default function OrderTracking() {
         </div>
       </motion.div>
 
-      {/* Map Section */}
-      <DeliveryMap 
-        orderId={orderId} 
-        order={order}
-        isVisible={!showConfirmation && order !== null} 
-      />
-
       {/* Scrollable Content */}
       <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 py-4 md:py-6 space-y-4 md:space-y-6 pb-24 md:pb-32">
         {/* Food Cooking Status - Show until delivery partner accepts pickup */}
@@ -1046,20 +908,8 @@ export default function OrderTracking() {
           </div>
         </motion.div>
 
-        {/* Help Section */}
-        <motion.div 
-          className="bg-white rounded-xl shadow-sm overflow-hidden"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-        >
-          <SectionItem 
-            icon={CircleSlash}
-            title="Cancel order"
-            subtitle=""
-            onClick={handleCancelOrder}
-          />
-        </motion.div>
+        {/* Help Section - Cancel order disabled */}
+        {/* Cancel order button removed - Users cannot cancel orders */}
 
       </div>
 

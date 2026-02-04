@@ -442,10 +442,12 @@ export default function GoogleMapsTracking({
     const startLocation = animatedDeliveryLocation || lastDeliveryLocationRef.current;
     const targetLocation = deliveryLocation;
 
-    const startTime = performance.now();
+    // Use Date.now() instead of performance.now() to avoid user timings (1,931 timings issue)
+    const startTime = Date.now();
     const duration = 3800; // Slightly less than 4s interval to ensure completion
 
-    const animate = (currentTime) => {
+    const animate = () => {
+      const currentTime = Date.now();
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const ease = progress; // Linear for constant speed prediction

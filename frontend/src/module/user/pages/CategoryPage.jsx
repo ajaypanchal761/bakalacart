@@ -71,7 +71,7 @@ export default function CategoryPage() {
             ...categoriesArray.map((cat) => ({
               id: cat.slug || cat.id,
               name: cat.name,
-              image: cat.image || foodImages[0],
+              image: (cat.image && cat.image.trim() !== '') ? cat.image : foodImages[0],
               slug: cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-'),
               type: cat.type,
             }))
@@ -1010,8 +1010,9 @@ export default function CategoryPage() {
                             e.stopPropagation()
                             toggleFavorite(restaurant.id)
                           }}
+                          aria-label={isFavorite ? `Remove ${restaurant.name} from favorites` : `Add ${restaurant.name} to favorites`}
                         >
-                          <Bookmark className={`h-5 w-5 md:h-6 md:w-6 ${isFavorite ? "fill-gray-800 dark:fill-gray-200 text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`} strokeWidth={2} />
+                          <Bookmark className={`h-5 w-5 md:h-6 md:w-6 ${isFavorite ? "fill-gray-800 dark:fill-gray-200 text-gray-800 dark:text-gray-200" : "text-gray-600 dark:text-gray-400"}`} strokeWidth={2} aria-hidden="true" />
                         </Button>
                       </div>
                       

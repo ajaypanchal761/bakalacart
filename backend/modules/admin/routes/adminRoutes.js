@@ -21,6 +21,7 @@ import {
   rejectRestaurant,
   reverifyRestaurant,
   deleteRestaurant,
+  sendRestaurantCredentialsEmail,
   getAllOffers,
   getRestaurantAnalytics,
   getCustomerWalletReport
@@ -204,7 +205,10 @@ import {
   getRestaurantReport,
   getOrdersForAssignment,
   assignOrderToDeliveryBoy,
-  getDeliveryBoysForAssignment
+  getDeliveryBoysForAssignment,
+  acceptOrderOnBehalfOfRestaurant,
+  reassignOrderToRestaurant,
+  deleteOrder
 } from '../controllers/orderController.js';
 import {
   getAllReviews,
@@ -292,6 +296,7 @@ router.post('/restaurants/:id/approve', approveRestaurant);
 router.post('/restaurants/:id/reject', rejectRestaurant);
 router.post('/restaurants/:id/reverify', reverifyRestaurant);
 router.put('/restaurants/:id/status', updateRestaurantStatus);
+router.post('/restaurants/:id/send-credentials', sendRestaurantCredentialsEmail);
 router.delete('/restaurants/:id', deleteRestaurant);
 
 // Category Management
@@ -446,6 +451,8 @@ router.get('/orders/transaction-report', getTransactionReport);
 router.get('/orders/restaurant-report', getRestaurantReport);
 router.get('/orders/for-assignment', getOrdersForAssignment);
 router.post('/orders/:orderId/assign', assignOrderToDeliveryBoy);
+router.post('/orders/:orderId/accept-restaurant', acceptOrderOnBehalfOfRestaurant);
+router.post('/orders/:orderId/reassign-restaurant', reassignOrderToRestaurant);
 router.get('/delivery-boys/for-assignment', getDeliveryBoysForAssignment);
 
 // Order Refund - MUST be before /orders/:id to avoid route conflicts
@@ -515,6 +522,7 @@ router.get('/reviews/restaurant/:restaurantId', getReviewsByRestaurant);
 
 // Get order by ID (must be last to avoid matching other routes)
 router.get('/orders/:id', getOrderById);
+router.delete('/orders/:id', deleteOrder);
 
 // Business Settings Management
 router.get('/business-settings', getBusinessSettings);

@@ -1,20 +1,18 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { useEffect, useState } from "react"
-import { User } from "lucide-react"
+import { User, Package } from "lucide-react"
 import { deliveryAPI } from "@/lib/api"
 
 // Heroicons Outline
 import {
   HomeIcon as HomeOutline,
   WalletIcon as WalletOutline,
-  ClockIcon as ClockOutline,
 } from "@heroicons/react/24/outline"
 
 // Heroicons Solid
 import {
   HomeIcon as HomeSolid,
   WalletIcon as WalletSolid,
-  ClockIcon as ClockSolid,
 } from "@heroicons/react/24/solid"
 
 export default function BottomNavigation() {
@@ -92,6 +90,15 @@ export default function BottomNavigation() {
           {TabLabel(isActive("/delivery"), "Feed")}
         </button>
 
+        {/* Orders */}
+        <button
+          onClick={() => navigate("/delivery/orders")}
+          className="flex flex-col items-center gap-1 p-2"
+        >
+          <Package className={`w-6 h-6 ${isActive("/delivery/orders") ? "text-black" : "text-gray-500"}`} />
+          {TabLabel(isActive("/delivery/orders"), "Orders")}
+        </button>
+
         {/* Pocket */}
         <button
           onClick={() => navigate("/delivery/requests")}
@@ -99,15 +106,6 @@ export default function BottomNavigation() {
         >
           {TabIcon(isActive("/delivery/requests"), WalletOutline, WalletSolid)}
           {TabLabel(isActive("/delivery/requests"), "Pocket")}
-        </button>
-
-        {/* Trip History */}
-        <button
-          onClick={() => navigate("/delivery/trip-history")}
-          className="flex flex-col items-center gap-1 p-2"
-        >
-          {TabIcon(isActive("/delivery/trip-history"), ClockOutline, ClockSolid)}
-          {TabLabel(isActive("/delivery/trip-history "), "Trip History")}
         </button>
 
         {/* Profile */}

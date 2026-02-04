@@ -46,13 +46,22 @@ export const createOrder = async (req, res) => {
     // Support both camelCase and snake_case from client
     const paymentMethod = bodyPaymentMethod ?? req.body.payment_method;
 
-    // Normalize payment method: 'cod' / 'COD' / 'Cash on Delivery' → 'cash', 'wallet' → 'wallet'
+    // Normalize payment method: 'cod' / 'COD' / 'Cash on Delivery' → 'cash'
+    // Wallet payment is no longer supported - reject it
+    const paymentMethodLower = (paymentMethod && String(paymentMethod).toLowerCase().trim()) || '';
+    if (paymentMethodLower === 'wallet') {
+      return res.status(400).json({
+        success: false,
+        message: 'Wallet payment is no longer supported. Please use Razorpay or Cash on Delivery.'
+      });
+    }
+    
     const normalizedPaymentMethod = (() => {
-      const m = (paymentMethod && String(paymentMethod).toLowerCase().trim()) || '';
+      const m = paymentMethodLower;
       if (m === 'cash' || m === 'cod' || m === 'cash on delivery') return 'cash';
-      if (m === 'wallet') return 'wallet';
       return paymentMethod || 'razorpay';
     })();
+    
     logger.info('Order create paymentMethod:', { raw: paymentMethod, normalized: normalizedPaymentMethod, bodyKeys: Object.keys(req.body || {}).filter(k => k.toLowerCase().includes('payment')) });
 
     // Validate required fields
@@ -1060,6 +1069,12 @@ export const getOrderDetails = async (req, res) => {
  * PATCH /api/order/:id/cancel
  */
 export const cancelOrder = async (req, res) => {
+  // DISABLED: Users cannot cancel orders
+  return res.status(403).json({
+    success: false,
+    message: 'Order cancellation is not available. Please contact support for assistance.'
+  });
+  
   try {
     const userId = req.user.id;
     const { id } = req.params;

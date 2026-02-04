@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom"
 import { useEffect, useState, useRef } from "react"
-import { ChevronDown, ShoppingCart, Wallet } from "lucide-react"
+import { ChevronDown, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLocation as useLocationHook } from "../hooks/useLocation"
 import { useCart } from "../context/CartContext"
@@ -179,20 +179,8 @@ export default function DesktopNavbar() {
             </Link>
           </div>
 
-          {/* Right: Wallet and Cart Icons */}
+          {/* Right: Cart Icon */}
           <div className="flex items-center gap-2 lg:gap-3 flex-shrink-0">
-            {/* Wallet Icon */}
-            <Link to="/user/wallet">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 lg:h-10 lg:w-10 rounded-full p-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Wallet"
-              >
-                <Wallet className="h-5 w-5 lg:h-6 lg:w-6 text-gray-700 dark:text-gray-300" strokeWidth={2} />
-              </Button>
-            </Link>
-
             {/* Cart Icon */}
             <Link to="/user/cart">
               <Button

@@ -23,6 +23,8 @@ export default function RestaurantsList() {
   const [banning, setBanning] = useState(false)
   const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(null) // { restaurant }
   const [deleting, setDeleting] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailRestaurantId, setEmailRestaurantId] = useState(null)
 
   // Format Restaurant ID to REST format (e.g., REST422829)
   const formatRestaurantId = (id) => {
@@ -381,6 +383,36 @@ export default function RestaurantsList() {
     setDeleteConfirmDialog(null)
   }
 
+  // Handle send credentials email
+  const handleSendCredentialsEmail = async (restaurant) => {
+    const restaurantId = restaurant._id || restaurant.id
+    const restaurantEmail = restaurant.email || restaurant.ownerEmail || restaurant.owner?.email
+    
+    if (!restaurantEmail) {
+      alert("Restaurant email not found. Cannot send credentials email.")
+      return
+    }
+
+    try {
+      setSendingEmail(true)
+      setEmailRestaurantId(restaurantId)
+      
+      const response = await adminAPI.sendRestaurantCredentialsEmail(restaurantId)
+      
+      if (response?.data?.success) {
+        alert(`Credentials email sent successfully to ${restaurantEmail}`)
+      } else {
+        alert(response?.data?.message || "Failed to send credentials email")
+      }
+    } catch (error) {
+      console.error("Error sending credentials email:", error)
+      alert(error.response?.data?.message || "Failed to send credentials email. Please try again.")
+    } finally {
+      setSendingEmail(false)
+      setEmailRestaurantId(null)
+    }
+  }
+
   // Handle export functionality
   const handleExport = () => {
     const dataToExport = filteredRestaurants.length > 0 ? filteredRestaurants : restaurants
@@ -629,6 +661,18 @@ export default function RestaurantsList() {
                               title={!restaurant.status ? "Unban Restaurant" : "Ban Restaurant"}
                             >
                               <ShieldX className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleSendCredentialsEmail(restaurant)}
+                              disabled={sendingEmail && emailRestaurantId === (restaurant._id || restaurant.id)}
+                              className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Send Credentials Email"
+                            >
+                              {sendingEmail && emailRestaurantId === (restaurant._id || restaurant.id) ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Mail className="w-4 h-4" />
+                              )}
                             </button>
                             <button
                               onClick={() => handleDeleteRestaurant(restaurant)}

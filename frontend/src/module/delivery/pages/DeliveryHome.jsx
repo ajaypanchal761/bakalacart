@@ -2165,22 +2165,69 @@ export default function DeliveryHome() {
                 restaurantLng = restaurantCoords[0] // Longitude is first element
               }
               
-              // Priority 2: From newOrder.restaurantLocation (if available from notification)
-              if ((!restaurantLat || !restaurantLng) && newOrder?.restaurantLocation) {
-                restaurantLat = newOrder.restaurantLocation.latitude || restaurantLat;
-                restaurantLng = newOrder.restaurantLocation.longitude || restaurantLng;
+              // Priority 2: From order.restaurantId.location with latitude/longitude fields
+              if ((!restaurantLat || !restaurantLng) && order.restaurantId?.location) {
+                if (order.restaurantId.location.latitude && order.restaurantId.location.longitude) {
+                  restaurantLat = order.restaurantId.location.latitude;
+                  restaurantLng = order.restaurantId.location.longitude;
+                }
               }
               
-              // Priority 3: From selectedRestaurant (if available)
+              // Priority 3: From newOrder.restaurantLocation (if available from notification)
+              if ((!restaurantLat || !restaurantLng) && newOrder?.restaurantLocation) {
+                if (newOrder.restaurantLocation.coordinates && Array.isArray(newOrder.restaurantLocation.coordinates) && newOrder.restaurantLocation.coordinates.length >= 2) {
+                  restaurantLat = newOrder.restaurantLocation.coordinates[1];
+                  restaurantLng = newOrder.restaurantLocation.coordinates[0];
+                } else if (newOrder.restaurantLocation.latitude && newOrder.restaurantLocation.longitude) {
+                  restaurantLat = newOrder.restaurantLocation.latitude;
+                  restaurantLng = newOrder.restaurantLocation.longitude;
+                }
+              }
+              
+              // Priority 4: From selectedRestaurant (if available)
               if ((!restaurantLat || !restaurantLng) && selectedRestaurant) {
                 restaurantLat = selectedRestaurant.lat || restaurantLat;
                 restaurantLng = selectedRestaurant.lng || restaurantLng;
+              }
+              
+              // If coordinates still not found, fetch from restaurant API
+              if ((!restaurantLat || !restaurantLng) && order.restaurantId) {
+                const restaurantIdString = typeof order.restaurantId === 'string' 
+                  ? order.restaurantId 
+                  : (order.restaurantId._id || order.restaurantId.id || order.restaurantId.toString())
+                
+                if (restaurantIdString) {
+                  try {
+                    console.log('🔄 Fetching restaurant coordinates by ID:', restaurantIdString)
+                    const restaurantResponse = await restaurantAPI.getRestaurantById(restaurantIdString)
+                    if (restaurantResponse.data?.success && restaurantResponse.data.data) {
+                      const restaurant = restaurantResponse.data.data.restaurant || restaurantResponse.data.data
+                      const restLocation = restaurant.location
+                      
+                      // Try coordinates array first
+                      if (restLocation?.coordinates && Array.isArray(restLocation.coordinates) && restLocation.coordinates.length >= 2) {
+                        restaurantLat = restLocation.coordinates[1]
+                        restaurantLng = restLocation.coordinates[0]
+                        console.log('✅ Fetched restaurant coordinates from API (array):', { lat: restaurantLat, lng: restaurantLng })
+                      }
+                      // Try latitude/longitude fields
+                      else if (restLocation?.latitude && restLocation?.longitude) {
+                        restaurantLat = restLocation.latitude
+                        restaurantLng = restLocation.longitude
+                        console.log('✅ Fetched restaurant coordinates from API (lat/lng):', { lat: restaurantLat, lng: restaurantLng })
+                      }
+                    }
+                  } catch (restaurantError) {
+                    console.error('❌ Error fetching restaurant coordinates:', restaurantError)
+                  }
+                }
               }
               
               console.log('📍 Restaurant location extracted:', {
                 lat: restaurantLat,
                 lng: restaurantLng,
                 fromOrder: !!order.restaurantId?.location?.coordinates,
+                fromOrderLatLng: !!(order.restaurantId?.location?.latitude && order.restaurantId?.location?.longitude),
                 fromNewOrder: !!newOrder?.restaurantLocation,
                 fromSelectedRestaurant: !!selectedRestaurant?.lat
               });
@@ -2367,13 +2414,25 @@ export default function DeliveryHome() {
                 responseEarnings: response.data.data.estimatedEarnings
               });
 
+              // Validate coordinates before creating restaurantInfo
+              if (!restaurantLat || !restaurantLng) {
+                console.error('❌ Restaurant coordinates not found after all attempts:', {
+                  restaurantLat,
+                  restaurantLng,
+                  orderId: order.orderId,
+                  restaurantId: order.restaurantId
+                });
+                toast.error('Restaurant location not available. Cannot calculate route.');
+                return;
+              }
+              
               restaurantInfo = {
                 id: order._id || order.orderId,
                 orderId: order.orderId, // Correct order ID from backend
                 name: restaurantName, // Restaurant name from backend (priority: restaurantName > restaurantId.name)
                 address: restaurantAddress, // Restaurant address from backend
-                lat: restaurantLat || selectedRestaurant?.lat,
-                lng: restaurantLng || selectedRestaurant?.lng,
+                lat: restaurantLat,
+                lng: restaurantLng,
                 distance: selectedRestaurant?.distance || '0 km',
                 timeAway: selectedRestaurant?.timeAway || '0 mins',
                 dropDistance: selectedRestaurant?.dropDistance || '0 km',
@@ -4247,8 +4306,8 @@ export default function DeliveryHome() {
       }
       
       setSelectedRestaurant(restaurantData)
-      setShowNewOrderPopup(true)
-      setCountdownSeconds(300) // Reset countdown to 5 minutes
+      // setShowNewOrderPopup(true) // DISABLED - Popup removed
+      // setCountdownSeconds(300) // Reset countdown to 5 minutes
     }
   }, [newOrder, calculateTimeAway, riderLocation])
 
@@ -4643,7 +4702,7 @@ export default function DeliveryHome() {
           }
           
           setSelectedRestaurant(restaurantData)
-          setShowNewOrderPopup(true)
+          // setShowNewOrderPopup(true) // DISABLED - Popup removed
           setCountdownSeconds(300) // Reset countdown to 5 minutes
           console.log('✅ Showing pending order notification:', orderId)
         } else {
@@ -9168,9 +9227,11 @@ export default function DeliveryHome() {
         </div>
       </BottomPopup>
 
-      {/* New Order Popup with Countdown Timer - Custom Implementation */}
-      <AnimatePresence>
-        {showNewOrderPopup && (newOrder || selectedRestaurant) && isOnline && (
+      {/* New Order Popup with Countdown Timer - Custom Implementation - DISABLED */}
+      {false && (
+        <>
+          <AnimatePresence>
+            {showNewOrderPopup && (newOrder || selectedRestaurant) && isOnline && (
           <>
             {/* Backdrop */}
             {!isNewOrderPopupMinimized && (
@@ -9508,9 +9569,11 @@ export default function DeliveryHome() {
                 Deny
               </button>
             </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+        </AnimatePresence>
+        </>
+      )}
 
       {/* Reject Order Popup */}
       <AnimatePresence>
@@ -9593,6 +9656,7 @@ export default function DeliveryHome() {
           </>
         )}
       </AnimatePresence>
+      )}
 
       {/* Directions Map View */}
       <AnimatePresence>

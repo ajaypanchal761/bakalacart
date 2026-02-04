@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import { useState, useEffect } from "react"
-import { ChevronDown, ShoppingCart, Wallet } from "lucide-react"
+import { ChevronDown, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLocation } from "../hooks/useLocation"
 import { useCart } from "../context/CartContext"
@@ -962,20 +962,6 @@ export default function PageNavbar({
 
         {/* Right: Actions - Hidden on desktop, shown on mobile */}
         <div className="flex md:hidden items-center gap-2 sm:gap-3 flex-shrink-0">
-          {/* Wallet Icon */}
-          <Link to="/user/wallet">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0 hover:opacity-80 transition-opacity"
-              title="Wallet"
-            >
-              <div className={`h-full w-full rounded-full bg-white/20 flex items-center justify-center ring-2 ${ringColor}`}>
-                <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-gray-800" strokeWidth={2} />
-              </div>
-            </Button>
-          </Link>
-
           {/* Cart Icon */}
           <Link to="/user/cart">
             <Button
@@ -983,12 +969,13 @@ export default function PageNavbar({
               size="icon"
               className="relative h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0 hover:opacity-80 transition-opacity"
               title="Cart"
+              aria-label={`Shopping cart${cartCount > 0 ? ` with ${cartCount} item${cartCount > 1 ? 's' : ''}` : ''}`}
             >
               <div className={`h-full w-full rounded-full bg-white/20 flex items-center justify-center ring-2 ${ringColor}`}>
-                <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-gray-800" strokeWidth={2} />
+                <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-gray-800" strokeWidth={2} aria-hidden="true" />
               </div>
               {cartCount > 0 && (
-                <span className={`absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center ring-2 ${textColor === "white" ? "ring-white/50" : "ring-gray-800/30"}`}>
+                <span className={`absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center ring-2 ${textColor === "white" ? "ring-white/50" : "ring-gray-800/30"}`} aria-hidden="true">
                   <span className="text-[9px] font-bold text-white">{cartCount > 99 ? "99+" : cartCount}</span>
                 </span>
               )}
@@ -1003,6 +990,7 @@ export default function PageNavbar({
                 size="icon"
                 className="h-8 w-8 sm:h-9 sm:w-9 rounded-full p-0 hover:opacity-80 transition-opacity"
                 title="Profile"
+                aria-label="User profile"
               >
                 <div className={`h-full w-full rounded-full bg-white flex items-center justify-center shadow-lg ring-2 ${ringColor}`}>
                   <span className="text-black text-xs sm:text-sm font-extrabold">

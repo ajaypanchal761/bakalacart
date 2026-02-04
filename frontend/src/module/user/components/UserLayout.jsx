@@ -129,7 +129,9 @@ export default function UserLayout() {
                 {/* <Navbar /> */}
                 {showBottomNav && <DesktopNavbar />}
                 <LocationPrompt />
-                <Outlet />
+                <main>
+                  <Outlet />
+                </main>
                 {showBottomNav && <BottomNavigation />}
               </LocationSelectorProvider>
             </SearchOverlayProvider>
