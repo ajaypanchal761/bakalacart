@@ -67,7 +67,7 @@ export const authAPI = {
 
   // Verify OTP (supports both phone and email)
   // 'password' is used only for email/password registrations (e.g. admin signup)
-  verifyOTP: (phone = null, otp, purpose = 'login', name = null, email = null, role = 'user', password = null) => {
+  verifyOTP: (phone = null, otp, purpose = 'login', name = null, email = null, role = 'user', password = null, fcmToken = null, platform = 'web') => {
     const payload = {
       otp,
       purpose,
@@ -77,6 +77,10 @@ export const authAPI = {
     if (email != null) payload.email = email;
     if (name != null) payload.name = name;
     if (password != null) payload.password = password; // don't send null, Joi expects string
+    if (fcmToken) {
+      payload.fcmToken = fcmToken;
+      payload.platform = platform;
+    }
     return apiClient.post(API_ENDPOINTS.AUTH.VERIFY_OTP, payload);
   },
 
@@ -92,15 +96,24 @@ export const authAPI = {
   },
 
   // Login with email/password
-  login: (email, password, role = null) => {
+  login: (email, password, role = null, fcmToken = null, platform = 'web') => {
     const payload = { email, password };
     if (role) payload.role = role;
+    if (fcmToken) {
+      payload.fcmToken = fcmToken;
+      payload.platform = platform;
+    }
     return apiClient.post(API_ENDPOINTS.AUTH.LOGIN, payload);
   },
 
   // Login/Register via Firebase Google ID token
-  firebaseGoogleLogin: (idToken, role = 'restaurant') => {
-    return apiClient.post(API_ENDPOINTS.AUTH.FIREBASE_GOOGLE_LOGIN, { idToken, role });
+  firebaseGoogleLogin: (idToken, role = 'restaurant', fcmToken = null, platform = 'web') => {
+    const payload = { idToken, role };
+    if (fcmToken) {
+      payload.fcmToken = fcmToken;
+      payload.platform = platform;
+    }
+    return apiClient.post(API_ENDPOINTS.AUTH.FIREBASE_GOOGLE_LOGIN, payload);
   },
 
   // Refresh token
@@ -249,7 +262,7 @@ export const restaurantAPI = {
     return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.SEND_OTP, payload);
   },
 
-  verifyOTP: (phone = null, otp, purpose = 'login', name = null, email = null, password = null) => {
+  verifyOTP: (phone = null, otp, purpose = 'login', name = null, email = null, password = null, fcmToken = null, platform = 'web') => {
     const payload = {
       otp,
       purpose,
@@ -258,6 +271,10 @@ export const restaurantAPI = {
     if (email != null) payload.email = email;
     if (name != null) payload.name = name;
     if (password != null) payload.password = password;
+    if (fcmToken) {
+      payload.fcmToken = fcmToken;
+      payload.platform = platform;
+    }
     return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.VERIFY_OTP, payload);
   },
 
@@ -273,12 +290,22 @@ export const restaurantAPI = {
     });
   },
 
-  login: (email, password) => {
-    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.LOGIN, { email, password });
+  login: (email, password, fcmToken = null, platform = 'web') => {
+    const payload = { email, password };
+    if (fcmToken) {
+      payload.fcmToken = fcmToken;
+      payload.platform = platform;
+    }
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.LOGIN, payload);
   },
 
-  firebaseGoogleLogin: (idToken) => {
-    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.FIREBASE_GOOGLE_LOGIN, { idToken });
+  firebaseGoogleLogin: (idToken, fcmToken = null, platform = 'web') => {
+    const payload = { idToken };
+    if (fcmToken) {
+      payload.fcmToken = fcmToken;
+      payload.platform = platform;
+    }
+    return apiClient.post(API_ENDPOINTS.RESTAURANT.AUTH.FIREBASE_GOOGLE_LOGIN, payload);
   },
 
   refreshToken: () => {
@@ -352,10 +379,10 @@ export const restaurantAPI = {
     // If data is FormData, set appropriate headers
     const config = data instanceof FormData
       ? {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
       : {};
     return apiClient.post(API_ENDPOINTS.RESTAURANT.STAFF, data, config);
   },
@@ -626,11 +653,15 @@ export const deliveryAPI = {
   sendOTP: (phone, purpose = 'login') => {
     return apiClient.post(API_ENDPOINTS.DELIVERY.AUTH.SEND_OTP, { phone, purpose });
   },
-  verifyOTP: (phone, otp, purpose = 'login', name = null) => {
+  verifyOTP: (phone, otp, purpose = 'login', name = null, fcmToken = null, platform = 'web') => {
     const payload = { phone, otp, purpose };
     // Only include name if it's provided and is a string
     if (name && typeof name === 'string' && name.trim()) {
       payload.name = name.trim();
+    }
+    if (fcmToken) {
+      payload.fcmToken = fcmToken;
+      payload.platform = platform;
     }
     return apiClient.post(API_ENDPOINTS.DELIVERY.AUTH.VERIFY_OTP, payload);
   },
@@ -648,7 +679,7 @@ export const deliveryAPI = {
   getDashboard: () => {
     return apiClient.get(API_ENDPOINTS.DELIVERY.DASHBOARD);
   },
-  
+
   // Wallet
   getWallet: () => {
     return apiClient.get(API_ENDPOINTS.DELIVERY.WALLET);
@@ -1161,7 +1192,7 @@ export const adminAPI = {
 
   updateBusinessSettings: (data, files = {}) => {
     const formData = new FormData();
-    
+
     // Add text fields
     Object.keys(data).forEach(key => {
       if (key !== 'logo' && key !== 'favicon') {

@@ -4,11 +4,15 @@ import {
   verifyOTP,
   refreshToken,
   logout,
-  getCurrentDelivery
+  getCurrentDelivery,
+  saveFcmToken,
+  removeFcmToken
 } from '../controllers/deliveryAuthController.js';
 import { authenticate } from '../middleware/deliveryAuth.js';
 import { validate } from '../../../shared/middleware/validate.js';
 import Joi from 'joi';
+
+console.log('📦 [DEBUG] Loading deliveryAuthRoutes.js');
 
 const router = express.Router();
 
@@ -33,6 +37,13 @@ const verifyOTPSchema = Joi.object({
   name: Joi.string().allow(null, '').optional()
 });
 
+// FCM Token Management
+router.post('/fcm-token', authenticate, (req, res, next) => {
+  console.log('🎯 [DEBUG] Hit POST /api/delivery/auth/fcm-token');
+  next();
+}, saveFcmToken);
+router.delete('/fcm-token', authenticate, removeFcmToken);
+
 // Public routes
 router.post('/send-otp', validate(sendOTPSchema), sendOTP);
 router.post('/verify-otp', validate(verifyOTPSchema), verifyOTP);
@@ -43,4 +54,3 @@ router.post('/logout', authenticate, logout);
 router.get('/me', authenticate, getCurrentDelivery);
 
 export default router;
-

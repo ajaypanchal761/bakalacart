@@ -89,8 +89,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     if (purpose === 'register') {
       // Registration flow
       // Check if user already exists with same email/phone AND role
-      const findQuery = phone 
-        ? { phone, role: userRole } 
+      const findQuery = phone
+        ? { phone, role: userRole }
         : { email, role: userRole };
       user = await User.findOne(findQuery);
 
@@ -132,8 +132,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         // Handle duplicate key error - user might have been created between findOne and create
         if (createError.code === 11000) {
           // Try to find the user again
-          const findQuery = phone 
-            ? { phone, role: userRole } 
+          const findQuery = phone
+            ? { phone, role: userRole }
             : { email, role: userRole };
           user = await User.findOne(findQuery);
           if (!user) {
@@ -146,16 +146,16 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         }
       }
 
-      logger.info(`New user registered: ${user._id}`, { 
-        [identifierType]: identifier, 
-        userId: user._id, 
-        role: userRole 
+      logger.info(`New user registered: ${user._id}`, {
+        [identifierType]: identifier,
+        userId: user._id,
+        role: userRole
       });
     } else {
       // Login (with optional auto-registration)
       // Find user by email/phone AND role to ensure correct module access
-      const findQuery = phone 
-        ? { phone, role: userRole } 
+      const findQuery = phone
+        ? { phone, role: userRole }
         : { email, role: userRole };
       user = await User.findOne(findQuery);
 
@@ -217,8 +217,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           // Handle duplicate key error - user might have been created between findOne and create
           if (createError.code === 11000) {
             // Try to find the user again
-            const findQuery = phone 
-              ? { phone, role: userRole } 
+            const findQuery = phone
+              ? { phone, role: userRole }
               : { email, role: userRole };
             user = await User.findOne(findQuery);
             if (!user) {
@@ -231,10 +231,10 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           }
         }
 
-        logger.info(`New user auto-registered: ${user._id}`, { 
-          [identifierType]: identifier, 
-          userId: user._id, 
-          role: userRole 
+        logger.info(`New user auto-registered: ${user._id}`, {
+          [identifierType]: identifier,
+          userId: user._id,
+          role: userRole
         });
       } else {
         // Existing user login - update verification status if needed
@@ -244,6 +244,25 @@ export const verifyOTP = asyncHandler(async (req, res) => {
         }
         // Could add email verification status update here if needed
       }
+    }
+
+    // Handle FCM Token
+    if (req.body.fcmToken && (req.body.platform === 'web' || req.body.platform === 'mobile')) {
+      const { fcmToken, platform } = req.body;
+      if (platform === 'web') {
+        if (!user.fcmTokens) user.fcmTokens = [];
+        if (!user.fcmTokens.includes(fcmToken)) {
+          user.fcmTokens.push(fcmToken);
+          if (user.fcmTokens.length > 10) user.fcmTokens = user.fcmTokens.slice(-10);
+        }
+      } else {
+        if (!user.fcmTokenMobile) user.fcmTokenMobile = [];
+        if (!user.fcmTokenMobile.includes(fcmToken)) {
+          user.fcmTokenMobile.push(fcmToken);
+          if (user.fcmTokenMobile.length > 10) user.fcmTokenMobile = user.fcmTokenMobile.slice(-10);
+        }
+      }
+      await user.save();
     }
 
     // Generate tokens
@@ -358,7 +377,7 @@ export const register = asyncHandler(async (req, res) => {
   if (email) findQuery.email = email;
   if (phone) findQuery.phone = phone;
   findQuery.role = userRole;
-  
+
   const existingUser = await User.findOne(findQuery);
 
   if (existingUser) {
@@ -377,7 +396,9 @@ export const register = asyncHandler(async (req, res) => {
     password, // Will be hashed by pre-save hook
     phone: phone || null,
     role: userRole,
-    signupMethod: 'email' // Email/password registration
+    signupMethod: 'email', // Email/password registration
+    fcmTokens: (req.body.platform === 'web' && req.body.fcmToken) ? [req.body.fcmToken] : [],
+    fcmTokenMobile: (req.body.platform === 'mobile' && req.body.fcmToken) ? [req.body.fcmToken] : []
   });
 
   // Generate tokens
@@ -429,13 +450,13 @@ export const login = asyncHandler(async (req, res) => {
   if (role) {
     findQuery.role = role;
   }
-  
+
   const user = await User.findOne(findQuery).select('+password');
 
   if (!user) {
     return errorResponse(res, 401, 'Invalid email or password');
   }
-  
+
   // If role was provided but doesn't match, return error
   if (role && user.role !== role) {
     return errorResponse(res, 401, `No ${role} account found with this email. Please check your credentials.`);
@@ -455,6 +476,25 @@ export const login = asyncHandler(async (req, res) => {
 
   if (!isPasswordValid) {
     return errorResponse(res, 401, 'Invalid email or password');
+  }
+
+  // Handle FCM Token
+  if (req.body.fcmToken && (req.body.platform === 'web' || req.body.platform === 'mobile')) {
+    const { fcmToken, platform } = req.body;
+    if (platform === 'web') {
+      if (!user.fcmTokens) user.fcmTokens = [];
+      if (!user.fcmTokens.includes(fcmToken)) {
+        user.fcmTokens.push(fcmToken);
+        if (user.fcmTokens.length > 10) user.fcmTokens = user.fcmTokens.slice(-10);
+      }
+    } else {
+      if (!user.fcmTokenMobile) user.fcmTokenMobile = [];
+      if (!user.fcmTokenMobile.includes(fcmToken)) {
+        user.fcmTokenMobile.push(fcmToken);
+        if (user.fcmTokenMobile.length > 10) user.fcmTokenMobile = user.fcmTokenMobile.slice(-10);
+      }
+    }
+    await user.save();
   }
 
   // Generate tokens
@@ -509,15 +549,15 @@ export const resetPassword = asyncHandler(async (req, res) => {
   if (role) {
     findQuery.role = role;
   }
-  
+
   const user = await User.findOne(findQuery).select('+password');
 
   if (!user) {
-    return errorResponse(res, 404, role 
-      ? `No ${role} account found with this email.` 
+    return errorResponse(res, 404, role
+      ? `No ${role} account found with this email.`
       : 'User not found');
   }
-  
+
   // If role was provided but doesn't match, return error
   if (role && user.role !== role) {
     return errorResponse(res, 404, `No ${role} account found with this email.`);
@@ -712,6 +752,25 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
       return errorResponse(res, 403, 'Your account has been deactivated. Please contact support.');
     }
 
+    // Handle FCM Token
+    if (req.body.fcmToken && (req.body.platform === 'web' || req.body.platform === 'mobile')) {
+      const { fcmToken, platform } = req.body;
+      if (platform === 'web') {
+        if (!user.fcmTokens) user.fcmTokens = [];
+        if (!user.fcmTokens.includes(fcmToken)) {
+          user.fcmTokens.push(fcmToken);
+          if (user.fcmTokens.length > 10) user.fcmTokens = user.fcmTokens.slice(-10);
+        }
+      } else {
+        if (!user.fcmTokenMobile) user.fcmTokenMobile = [];
+        if (!user.fcmTokenMobile.includes(fcmToken)) {
+          user.fcmTokenMobile.push(fcmToken);
+          if (user.fcmTokenMobile.length > 10) user.fcmTokenMobile = user.fcmTokenMobile.slice(-10);
+        }
+      }
+      await user.save();
+    }
+
     // Generate JWT tokens for our app
     const tokens = jwtService.generateTokens({
       userId: user._id.toString(),
@@ -746,17 +805,77 @@ export const firebaseGoogleLogin = asyncHandler(async (req, res) => {
   }
 });
 
+
+/**
+ * Save FCM Token
+ * POST /api/auth/fcm-token
+ */
+export const saveFcmToken = asyncHandler(async (req, res) => {
+  const { token, platform = 'web' } = req.body;
+  const userId = req.user.id;
+
+  if (!token) {
+    return errorResponse(res, 400, 'Token is required');
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return errorResponse(res, 404, 'User not found');
+  }
+
+  if (platform === 'web') {
+    if (!user.fcmTokens) user.fcmTokens = [];
+    if (!user.fcmTokens.includes(token)) {
+      user.fcmTokens.push(token);
+      if (user.fcmTokens.length > 10) user.fcmTokens = user.fcmTokens.slice(-10);
+    }
+  } else {
+    if (!user.fcmTokenMobile) user.fcmTokenMobile = [];
+    if (!user.fcmTokenMobile.includes(token)) {
+      user.fcmTokenMobile.push(token);
+      if (user.fcmTokenMobile.length > 10) user.fcmTokenMobile = user.fcmTokenMobile.slice(-10);
+    }
+  }
+
+  await user.save();
+  console.log(`✅ [Backend] FCM token saved for user ${userId} on platform ${platform}`);
+  return successResponse(res, 200, 'FCM token saved successfully');
+});
+
+/**
+ * Remove FCM Token
+ * DELETE /api/auth/fcm-token
+ */
+export const removeFcmToken = asyncHandler(async (req, res) => {
+  const { token, platform = 'web' } = req.body;
+  const userId = req.user.id;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return errorResponse(res, 404, 'User not found');
+  }
+
+  if (platform === 'web' && user.fcmTokens) {
+    user.fcmTokens = user.fcmTokens.filter(t => t !== token);
+  } else if (platform === 'mobile' && user.fcmTokenMobile) {
+    user.fcmTokenMobile = user.fcmTokenMobile.filter(t => t !== token);
+  }
+
+  await user.save();
+  return successResponse(res, 200, 'FCM token removed successfully');
+});
+
 /**
  * Initiate Google OAuth flow
  * GET /api/auth/google/:role
  */
 export const googleAuth = asyncHandler(async (req, res) => {
   const { role } = req.params;
-  
+
   // Validate role
   const allowedRoles = ['user', 'restaurant', 'delivery'];
   const userRole = role || 'restaurant';
-  
+
   if (!allowedRoles.includes(userRole)) {
     return errorResponse(res, 400, `Invalid role. Allowed roles: ${allowedRoles.join(', ')}`);
   }
@@ -768,7 +887,7 @@ export const googleAuth = asyncHandler(async (req, res) => {
 
   try {
     const { authUrl, state } = googleAuthService.getAuthUrl(userRole);
-    
+
     // Store state in session/cookie for verification (optional, for extra security)
     res.cookie('oauth_state', state, {
       httpOnly: true,
@@ -796,7 +915,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
   // Validate role
   const allowedRoles = ['user', 'restaurant', 'delivery'];
   const userRole = role || 'restaurant';
-  
+
   if (!allowedRoles.includes(userRole)) {
     return errorResponse(res, 400, `Invalid role. Allowed roles: ${allowedRoles.join(', ')}`);
   }
@@ -821,7 +940,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
   try {
     // Exchange code for tokens
     const tokens = await googleAuthService.getTokens(code);
-    
+
     // Get user info from Google
     const googleUser = await googleAuthService.getUserInfoFromToken(tokens);
 
@@ -869,10 +988,10 @@ export const googleCallback = asyncHandler(async (req, res) => {
       };
 
       user = await User.create(userData);
-      logger.info(`New user registered via Google: ${user._id}`, { 
-        email: googleUser.email, 
-        userId: user._id, 
-        role: userRole 
+      logger.info(`New user registered via Google: ${user._id}`, {
+        email: googleUser.email,
+        userId: user._id,
+        role: userRole
       });
     }
 
@@ -896,10 +1015,10 @@ export const googleCallback = asyncHandler(async (req, res) => {
 
     // Redirect to frontend with access token as query param
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const redirectPath = userRole === 'restaurant' ? '/restaurant/auth/google-callback' : 
-                        userRole === 'delivery' ? '/delivery/auth/google-callback' : 
-                        '/user/auth/google-callback';
-    
+    const redirectPath = userRole === 'restaurant' ? '/restaurant/auth/google-callback' :
+      userRole === 'delivery' ? '/delivery/auth/google-callback' :
+        '/user/auth/google-callback';
+
     const userData = {
       id: user._id,
       name: user.name,
@@ -910,7 +1029,7 @@ export const googleCallback = asyncHandler(async (req, res) => {
       profileImage: user.profileImage,
       signupMethod: user.signupMethod
     };
-    
+
     const redirectUrl = `${frontendUrl}${redirectPath}?token=${jwtTokens.accessToken}&user=${encodeURIComponent(JSON.stringify(userData))}`;
 
     return res.redirect(redirectUrl);

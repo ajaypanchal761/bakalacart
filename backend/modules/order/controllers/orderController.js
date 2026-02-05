@@ -8,6 +8,7 @@ import winston from 'winston';
 import { calculateOrderPricing } from '../services/orderCalculationService.js';
 import { getRazorpayCredentials } from '../../../shared/utils/envService.js';
 import { notifyRestaurantNewOrder } from '../services/restaurantNotificationService.js';
+import { sendOrderPushNotification } from '../services/pushNotificationService.js';
 import { calculateOrderSettlement } from '../services/orderSettlementService.js';
 import { holdEscrow } from '../services/escrowWalletService.js';
 import { processCancellationRefund } from '../services/cancellationRefundService.js';
@@ -55,13 +56,13 @@ export const createOrder = async (req, res) => {
         message: 'Wallet payment is no longer supported. Please use Razorpay or Cash on Delivery.'
       });
     }
-    
+
     const normalizedPaymentMethod = (() => {
       const m = paymentMethodLower;
       if (m === 'cash' || m === 'cod' || m === 'cash on delivery') return 'cash';
       return paymentMethod || 'razorpay';
     })();
-    
+
     logger.info('Order create paymentMethod:', { raw: paymentMethod, normalized: normalizedPaymentMethod, bodyKeys: Object.keys(req.body || {}).filter(k => k.toLowerCase().includes('payment')) });
 
     // Validate required fields
@@ -181,7 +182,7 @@ export const createOrder = async (req, res) => {
     // CRITICAL: Validate that restaurant's location (pin) is within an active zone
     const restaurantLat = restaurant.location?.latitude || restaurant.location?.coordinates?.[1];
     const restaurantLng = restaurant.location?.longitude || restaurant.location?.coordinates?.[0];
-    
+
     if (!restaurantLat || !restaurantLng) {
       logger.error('❌ Restaurant location not found:', {
         restaurantId: restaurant._id?.toString() || restaurant.restaurantId,
@@ -200,7 +201,7 @@ export const createOrder = async (req, res) => {
 
     for (const zone of activeZones) {
       if (!zone.coordinates || zone.coordinates.length < 3) continue;
-      
+
       let isInZone = false;
       if (typeof zone.containsPoint === 'function') {
         isInZone = zone.containsPoint(restaurantLat, restaurantLng);
@@ -214,16 +215,16 @@ export const createOrder = async (req, res) => {
           const yi = typeof coordI === 'object' ? (coordI.longitude || coordI.lng) : null;
           const xj = typeof coordJ === 'object' ? (coordJ.latitude || coordJ.lat) : null;
           const yj = typeof coordJ === 'object' ? (coordJ.longitude || coordJ.lng) : null;
-          
+
           if (xi === null || yi === null || xj === null || yj === null) continue;
-          
-          const intersect = ((yi > restaurantLng) !== (yj > restaurantLng)) && 
-                           (restaurantLat < (xj - xi) * (restaurantLng - yi) / (yj - yi) + xi);
+
+          const intersect = ((yi > restaurantLng) !== (yj > restaurantLng)) &&
+            (restaurantLat < (xj - xi) * (restaurantLng - yi) / (yj - yi) + xi);
           if (intersect) inside = !inside;
         }
         isInZone = inside;
       }
-      
+
       if (isInZone) {
         restaurantInZone = true;
         restaurantZone = zone;
@@ -253,10 +254,10 @@ export const createOrder = async (req, res) => {
 
     // CRITICAL: Validate user's zone matches restaurant's zone (strict zone matching)
     const { zoneId: userZoneId } = req.body; // User's zone ID from frontend
-    
+
     if (userZoneId) {
       const restaurantZoneId = restaurantZone._id.toString();
-      
+
       if (restaurantZoneId !== userZoneId) {
         logger.warn('⚠️ Zone mismatch - user and restaurant are in different zones:', {
           userZoneId,
@@ -269,7 +270,7 @@ export const createOrder = async (req, res) => {
           message: 'This restaurant is not available in your zone. Please select a restaurant from your current delivery zone.'
         });
       }
-      
+
       logger.info('✅ Zone match validated - user and restaurant are in the same zone:', {
         zoneId: userZoneId,
         restaurantId: restaurant._id?.toString() || restaurant.restaurantId
@@ -348,18 +349,18 @@ export const createOrder = async (req, res) => {
 
     // Calculate initial ETA
     try {
-      const restaurantLocation = restaurant.location 
+      const restaurantLocation = restaurant.location
         ? {
-            latitude: restaurant.location.latitude,
-            longitude: restaurant.location.longitude
-          }
+          latitude: restaurant.location.latitude,
+          longitude: restaurant.location.longitude
+        }
         : null;
 
       const userLocation = address.location?.coordinates
         ? {
-            latitude: address.location.coordinates[1],
-            longitude: address.location.coordinates[0]
-          }
+          latitude: address.location.coordinates[1],
+          longitude: address.location.coordinates[0]
+        }
         : null;
 
       if (restaurantLocation && userLocation) {
@@ -429,7 +430,7 @@ export const createOrder = async (req, res) => {
       try {
         // Find or create wallet
         const wallet = await UserWallet.findOrCreateByUserId(userId);
-        
+
         // Check if sufficient balance
         if (pricing.total > wallet.balance) {
           return res.status(400).json({
@@ -611,6 +612,23 @@ export const createOrder = async (req, res) => {
         });
       }
 
+      // Notify user about order placement (FCM)
+      try {
+        await sendOrderPushNotification(userId, 'user', {
+          title: '✅ Order Placed Successfully!',
+          body: `Your order #${order.orderId} has been placed. Waiting for restaurant to prepare.`,
+          data: {
+            orderId: order.orderId,
+            orderMongoId: order._id.toString(),
+            type: 'order_confirmed',
+            click_action: '/my-orders'
+          }
+        });
+        logger.info('✅ [Push Notification] Sent to user for order placement');
+      } catch (pushError) {
+        logger.error('❌ [Push Notification] Error sending to user:', pushError);
+      }
+
       // Respond to client (no Razorpay details for COD)
       return res.status(201).json({
         success: true,
@@ -730,7 +748,7 @@ export const verifyOrderPayment = async (req, res) => {
           userId
         });
       }
-      
+
       // If not found, try by orderId string
       if (!order) {
         order = await Order.findOne({
@@ -813,10 +831,10 @@ export const verifyOrderPayment = async (req, res) => {
     try {
       // Calculate settlement breakdown
       await calculateOrderSettlement(order._id);
-      
+
       // Hold funds in escrow
       await holdEscrow(order._id, userId, order.pricing.total);
-      
+
       logger.info(`✅ Order settlement calculated and escrow held for order ${order.orderId}`);
     } catch (settlementError) {
       logger.error(`❌ Error calculating settlement for order ${order.orderId}:`, settlementError);
@@ -828,7 +846,7 @@ export const verifyOrderPayment = async (req, res) => {
     try {
       const restaurantId = order.restaurantId?.toString() || order.restaurantId;
       const restaurantName = order.restaurantName;
-      
+
       // CRITICAL: Log detailed info before notification
       logger.info('🔔 CRITICAL: Attempting to notify restaurant about confirmed order:', {
         orderId: order.orderId,
@@ -842,7 +860,7 @@ export const verifyOrderPayment = async (req, res) => {
         orderCreatedAt: order.createdAt,
         orderItems: order.items.map(item => ({ name: item.name, quantity: item.quantity }))
       });
-      
+
       // Verify order has restaurantId before notifying
       if (!restaurantId) {
         logger.error('❌ CRITICAL: Cannot notify restaurant - order.restaurantId is missing!', {
@@ -855,7 +873,7 @@ export const verifyOrderPayment = async (req, res) => {
         });
         throw new Error('Order restaurantId is missing');
       }
-      
+
       // Verify order has restaurantName before notifying
       if (!restaurantName) {
         logger.warn('⚠️ Order restaurantName is missing:', {
@@ -863,9 +881,9 @@ export const verifyOrderPayment = async (req, res) => {
           restaurantId: restaurantId
         });
       }
-      
+
       const notificationResult = await notifyRestaurantNewOrder(order, restaurantId);
-      
+
       logger.info(`✅ Successfully notified restaurant about confirmed order:`, {
         orderId: order.orderId,
         restaurantId: restaurantId,
@@ -885,6 +903,23 @@ export const verifyOrderPayment = async (req, res) => {
       // Don't fail payment verification if notification fails
       // Order is still saved and restaurant can fetch it via API
       // But log it as critical for debugging
+    }
+
+    // FIREBASE NOTIFICATION TO USER
+    try {
+      await sendOrderPushNotification(userId, 'user', {
+        title: '✅ Payment Successful! Order Confirmed',
+        body: `Your order #${order.orderId} have been confirmed.`,
+        data: {
+          orderId: order.orderId,
+          orderMongoId: order._id.toString(),
+          type: 'payment_success',
+          click_action: '/my-orders'
+        }
+      });
+      logger.info('✅ [Push Notification] Sent to user for payment success');
+    } catch (pushError) {
+      logger.error('❌ [Push Notification] Error sending to user:', pushError);
     }
 
     logger.info(`Order payment verified: ${order.orderId}`, {
@@ -941,7 +976,7 @@ export const getUserOrders = async (req, res) => {
     // But we'll try both formats to be safe
     const mongoose = (await import('mongoose')).default;
     const query = { userId };
-    
+
     // If userId is a string that looks like ObjectId, also try ObjectId format
     if (typeof userId === 'string' && mongoose.Types.ObjectId.isValid(userId)) {
       query.$or = [
@@ -950,7 +985,7 @@ export const getUserOrders = async (req, res) => {
       ];
       delete query.userId; // Remove direct userId since we're using $or
     }
-    
+
     // Add status filter if provided
     if (status) {
       if (query.$or) {
@@ -1013,7 +1048,7 @@ export const getOrderDetails = async (req, res) => {
 
     // Try to find order by MongoDB _id or orderId (custom order ID)
     let order = null;
-    
+
     // First try MongoDB _id if it's a valid ObjectId
     if (mongoose.Types.ObjectId.isValid(id) && id.length === 24) {
       order = await Order.findOne({
@@ -1024,7 +1059,7 @@ export const getOrderDetails = async (req, res) => {
         .populate('userId', 'name fullName phone email')
         .lean();
     }
-    
+
     // If not found, try by orderId (custom order ID like "ORD-123456-789")
     if (!order) {
       order = await Order.findOne({
@@ -1074,7 +1109,7 @@ export const cancelOrder = async (req, res) => {
     success: false,
     message: 'Order cancellation is not available. Please contact support for assistance.'
   });
-  
+
   try {
     const userId = req.user.id;
     const { id } = req.params;

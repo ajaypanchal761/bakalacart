@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { deliveryAPI } from "@/lib/api"
 import { setAuthData as storeAuthData } from "@/lib/utils/auth"
+import { registerFCMToken, getFCMToken, getPlatform } from "@/services/pushNotificationService"
 
 export default function DeliveryOTP() {
   const navigate = useNavigate()
@@ -26,7 +27,7 @@ export default function DeliveryOTP() {
     // Only redirect if token exists and is valid - don't redirect during OTP flow
     const token = localStorage.getItem("delivery_accessToken")
     const authenticated = localStorage.getItem("delivery_authenticated") === "true"
-    
+
     // Only redirect if both token and authenticated flag exist (user is fully logged in)
     if (token && authenticated) {
       // Check if token is not expired
@@ -158,7 +159,7 @@ export default function DeliveryOTP() {
     if (!showNameInput && digits.length === 6) {
       handleVerify(newOtp.join(""))
       return
-    } 
+    }
     inputRefs.current[digits.length]?.focus()
   }
 
@@ -169,7 +170,7 @@ export default function DeliveryOTP() {
     }
 
     const code = otpValue || otp.join("")
-    
+
     if (code.length !== 6) {
       return
     }
@@ -185,8 +186,16 @@ export default function DeliveryOTP() {
         return
       }
 
+      // Get FCM Token before login
+      let fcmToken = null;
+      try {
+        fcmToken = await getFCMToken();
+      } catch (fcmError) {
+        console.error("❌ Error getting FCM token during login:", fcmError);
+      }
+
       // First attempt: verify OTP for login
-      const response = await deliveryAPI.verifyOTP(phone, code, "login")
+      const response = await deliveryAPI.verifyOTP(phone, code, "login", null, fcmToken, getPlatform())
       const data = response?.data?.data || {}
 
       // Check if user needs to complete signup
@@ -204,6 +213,15 @@ export default function DeliveryOTP() {
           console.log("Storing auth data for signup flow:", { hasToken: !!accessToken, hasUser: !!user })
           storeAuthData("delivery", accessToken, user)
           console.log("Auth data stored successfully for signup")
+
+          console.log("🔔 [Delivery OTP] Attempting to register FCM token (Signup)...");
+          try {
+            await registerFCMToken('delivery', accessToken);
+            console.log("✅ [Delivery OTP] FCM token registration called successfully");
+          } catch (fcmError) {
+            console.error("❌ [Delivery OTP] Failed to register FCM token:", fcmError);
+          }
+
         } catch (storageError) {
           console.error("Failed to store authentication data:", storageError)
           setError("Failed to save authentication. Please try again or clear your browser storage.")
@@ -249,6 +267,8 @@ export default function DeliveryOTP() {
       // Dispatch custom event for same-tab updates
       window.dispatchEvent(new Event("deliveryAuthChanged"))
 
+      await registerFCMToken('delivery', accessToken);
+
       setSuccess(true)
       setIsLoading(false)
 
@@ -258,9 +278,9 @@ export default function DeliveryOTP() {
       const verifyAndNavigate = () => {
         const storedToken = localStorage.getItem("delivery_accessToken")
         const storedAuth = localStorage.getItem("delivery_authenticated")
-        
+
         console.log("Verifying token storage:", { hasToken: !!storedToken, authenticated: storedAuth, retryCount })
-        
+
         if (storedToken && storedAuth === "true") {
           // Token is stored, navigate to delivery home
           console.log("Token verified, navigating to /delivery")
@@ -314,8 +334,16 @@ export default function DeliveryOTP() {
         return
       }
 
+      // Get FCM Token before login
+      let fcmToken = null;
+      try {
+        fcmToken = await getFCMToken();
+      } catch (fcmError) {
+        console.error("❌ Error getting FCM token during registration:", fcmError);
+      }
+
       // Second call with name to auto-register and login
-      const response = await deliveryAPI.verifyOTP(phone, verifiedOtp, "login", trimmedName)
+      const response = await deliveryAPI.verifyOTP(phone, verifiedOtp, "login", trimmedName, fcmToken, getPlatform())
       const data = response?.data?.data || {}
 
       const accessToken = data.accessToken
@@ -344,6 +372,8 @@ export default function DeliveryOTP() {
       // Dispatch custom event for same-tab updates
       window.dispatchEvent(new Event("deliveryAuthChanged"))
 
+      await registerFCMToken('delivery', accessToken);
+
       setSuccess(true)
       setIsLoading(false)
 
@@ -353,9 +383,9 @@ export default function DeliveryOTP() {
       const verifyAndNavigate = () => {
         const storedToken = localStorage.getItem("delivery_accessToken")
         const storedAuth = localStorage.getItem("delivery_authenticated")
-        
+
         console.log("Verifying token storage (with name):", { hasToken: !!storedToken, authenticated: storedAuth, retryCount })
-        
+
         if (storedToken && storedAuth === "true") {
           // Token is stored, navigate to delivery home
           console.log("Token verified, navigating to /delivery")
@@ -465,7 +495,7 @@ export default function DeliveryOTP() {
           <ArrowLeft className="h-5 w-5 text-black" />
         </button>
         <h1 className="text-lg font-bold text-black">OTP Verification</h1>
-      </div> 
+      </div>
 
       {/* Main Content */}
       <div className="flex flex-col justify-center px-6 pt-8 pb-12">
@@ -554,9 +584,8 @@ export default function DeliveryOTP() {
                   }}
                   disabled={isLoading}
                   placeholder="Enter your name"
-                  className={`h-11 border ${
-                    nameError ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={`h-11 border ${nameError ? "border-red-500" : "border-gray-300"
+                    }`}
                 />
                 {nameError && (
                   <p className="text-xs text-red-500 text-left">

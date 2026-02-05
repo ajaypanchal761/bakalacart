@@ -219,7 +219,7 @@ restaurantNamespace.on('connection', (socket) => {
         room: room,
         socketId: socket.id
       });
-      
+
       // Log all rooms this socket is now in
       const socketRooms = Array.from(socket.rooms).filter(r => r.startsWith('restaurant:'));
       console.log(`📋 Socket ${socket.id} is now in restaurant rooms:`, socketRooms);
@@ -316,10 +316,17 @@ const allowedOrigins = [
   'https://foozeto.appzeto.com',
   'http://foozeto.appzeto.com',
   'http://localhost:3000',
+  'https://localhost:3000',
   'http://localhost:5173',
+  'https://localhost:5173',
   'http://localhost:5174',
+  'https://localhost:5174',
   'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174'
+  'https://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'https://127.0.0.1:5174',
+  'http://127.0.0.1:3000',
+  'https://127.0.0.1:3000'
 ].filter(Boolean); // Remove undefined values
 
 app.use(cors({

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { authAPI } from "@/lib/api"
 import { setAuthData as setUserAuthData } from "@/lib/utils/auth"
+import { registerFCMToken, getFCMToken, getPlatform } from "@/services/pushNotificationService"
 
 export default function OTP() {
   const navigate = useNavigate()
@@ -55,7 +56,7 @@ export default function OTP() {
       } else {
         setContactInfo(data.phone || "")
       }
-      
+
       // OTP auto-fill removed - user must manually enter OTP
     }
 
@@ -165,7 +166,7 @@ export default function OTP() {
     }
 
     const code = otpValue || otp.join("")
-    
+
     if (code.length !== 6) {
       return
     }
@@ -178,8 +179,16 @@ export default function OTP() {
       const email = authData?.method === "email" ? authData.email : null
       const purpose = authData?.isSignUp ? "register" : "login"
 
+      // Get FCM Token before login
+      let fcmToken = null;
+      try {
+        fcmToken = await getFCMToken();
+      } catch (fcmError) {
+        console.error("❌ Error getting FCM token during login:", fcmError);
+      }
+
       // First attempt: verify OTP for login/register with user role
-      const response = await authAPI.verifyOTP(phone, code, purpose, null, email, "user")
+      const response = await authAPI.verifyOTP(phone, code, purpose, null, email, "user", null, fcmToken, getPlatform())
       const data = response?.data?.data || {}
 
       // If backend tells us this is a new user, ask for name
@@ -208,6 +217,14 @@ export default function OTP() {
 
       // Dispatch custom event for same-tab updates
       window.dispatchEvent(new Event("userAuthChanged"))
+
+      console.log("🔔 [User OTP] Attempting to register FCM token...");
+      try {
+        await registerFCMToken('user', accessToken);
+        console.log("✅ [User OTP] FCM token registration called successfully");
+      } catch (fcmError) {
+        console.error("❌ [User OTP] Failed to register FCM token:", fcmError);
+      }
 
       setSuccess(true)
 
@@ -253,8 +270,16 @@ export default function OTP() {
       const email = authData?.method === "email" ? authData.email : null
       const purpose = authData?.isSignUp ? "register" : "login"
 
+      // Get FCM Token before login
+      let fcmToken = null;
+      try {
+        fcmToken = await getFCMToken();
+      } catch (fcmError) {
+        console.error("❌ Error getting FCM token during registration:", fcmError);
+      }
+
       // Second call with name to auto-register and login
-      const response = await authAPI.verifyOTP(phone, verifiedOtp, purpose, trimmedName, email, "user")
+      const response = await authAPI.verifyOTP(phone, verifiedOtp, purpose, trimmedName, email, "user", null, fcmToken, getPlatform())
       const data = response?.data?.data || {}
 
       const accessToken = data.accessToken
@@ -272,6 +297,8 @@ export default function OTP() {
 
       // Dispatch custom event for same-tab updates
       window.dispatchEvent(new Event("userAuthChanged"))
+
+      await registerFCMToken('user', accessToken);
 
       setSuccess(true)
 
@@ -351,7 +378,7 @@ export default function OTP() {
           <ArrowLeft className="h-5 w-5 md:h-6 md:w-6 text-black dark:text-white" />
         </button>
         <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-black dark:text-white">OTP Verification</h1>
-      </div> 
+      </div>
 
       {/* Main Content */}
       <div className="flex flex-col justify-center px-6 sm:px-8 md:px-12 lg:px-16 xl:px-20 pt-8 sm:pt-12 md:pt-16 lg:pt-20 pb-12 sm:pb-16 md:pb-20">
@@ -362,8 +389,8 @@ export default function OTP() {
               {showNameInput
                 ? "You're almost done! Please tell us your name to complete registration."
                 : contactType === "email"
-                ? "We have sent a verification code to"
-                : "We have sent a verification code to"}
+                  ? "We have sent a verification code to"
+                  : "We have sent a verification code to"}
             </p>
             {!showNameInput && (
               <p className="text-base md:text-lg lg:text-xl text-black dark:text-white font-medium">
@@ -440,9 +467,8 @@ export default function OTP() {
                   }}
                   disabled={isLoading}
                   placeholder="Enter your name"
-                  className={`h-11 md:h-14 text-base md:text-lg border-2 ${
-                    nameError ? "border-red-500" : "border-gray-300 dark:border-gray-700"
-                  } bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[#E23744]`}
+                  className={`h-11 md:h-14 text-base md:text-lg border-2 ${nameError ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                    } bg-white dark:bg-[#1a1a1a] text-black dark:text-white rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[#E23744]`}
                 />
                 {nameError && (
                   <p className="text-xs md:text-sm text-red-500 text-left">

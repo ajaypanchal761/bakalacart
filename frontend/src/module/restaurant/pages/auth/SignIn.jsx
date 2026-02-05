@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { restaurantAPI } from "@/lib/api"
 import { setAuthData } from "@/lib/utils/auth"
+import { registerFCMToken, getFCMToken, getPlatform } from "@/services/pushNotificationService"
 import { Mail, Lock, EyeOff, Eye, CheckSquare, UtensilsCrossed } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -32,18 +33,29 @@ export default function RestaurantSignIn() {
     setIsLoading(true)
 
     try {
-      // Login with restaurant auth endpoint
-      const response = await restaurantAPI.login(email, password)
-      const data = response?.data?.data || response?.data
-      
-      if (data.accessToken && data.restaurant) {
-        // Replace old token with new one (handles cross-module login)
-        setAuthData("restaurant", data.accessToken, data.restaurant)
+        // Get FCM Token before login
+        let fcmToken = null;
+        try {
+          fcmToken = await getFCMToken();
+        } catch (fcmError) {
+          console.error("❌ Error getting FCM token during login:", fcmError);
+        }
+
+        // Login with restaurant auth endpoint
+        const response = await restaurantAPI.login(email, password, fcmToken, getPlatform())
+        const data = response?.data?.data || response?.data
         
-        // Dispatch custom event for same-tab updates
-        window.dispatchEvent(new Event('restaurantAuthChanged'))
-        
-        navigate("/restaurant", { replace: true })
+        if (data.accessToken && data.restaurant) {
+          // Replace old token with new one (handles cross-module login)
+          setAuthData("restaurant", data.accessToken, data.restaurant)
+          
+          // Dispatch custom event for same-tab updates
+          window.dispatchEvent(new Event('restaurantAuthChanged'))
+
+          // Register FCM Token (Still call it to ensure sync status is updated in localStorage)
+          await registerFCMToken('restaurant', data.accessToken);
+          
+          navigate("/restaurant", { replace: true })
       } else {
         throw new Error("Login failed. Please try again.")
       }

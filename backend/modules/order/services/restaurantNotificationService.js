@@ -2,6 +2,7 @@ import Order from '../models/Order.js';
 import Payment from '../../payment/models/Payment.js';
 import Restaurant from '../../restaurant/models/Restaurant.js';
 import mongoose from 'mongoose';
+import { sendOrderPushNotification } from './pushNotificationService.js';
 
 // Dynamic import to avoid circular dependency
 let getIO = null;
@@ -32,7 +33,7 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
     // CRITICAL: Validate restaurantId matches order's restaurantId
     const orderRestaurantId = order.restaurantId?.toString() || order.restaurantId;
     const providedRestaurantId = restaurantId?.toString() || restaurantId;
-    
+
     if (orderRestaurantId !== providedRestaurantId) {
       console.error('❌ CRITICAL: RestaurantId mismatch in notification!', {
         orderRestaurantId: orderRestaurantId,
@@ -57,7 +58,7 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
         ]
       }).lean();
     }
-    
+
     // Validate restaurant name matches order
     if (restaurant && order.restaurantName && restaurant.name !== order.restaurantName) {
       console.warn('⚠️ Restaurant name mismatch:', {
@@ -163,7 +164,7 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
       console.error(`❌ Restaurant name: ${order.restaurantName}`);
       console.error(`❌ Restaurant ID from order: ${order.restaurantId}`);
       console.error(`❌ Normalized restaurant ID: ${normalizedRestaurantId}`);
-      
+
       // Log all connected restaurant sockets for debugging (but don't send to them)
       const allSockets = await restaurantNamespace.fetchSockets();
       console.log(`📊 Total restaurant sockets connected: ${allSockets.length}`);
@@ -179,7 +180,7 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
         }
         console.log(`📊 Connected restaurant sockets and their rooms:`, socketRooms);
       }
-      
+
       // Still try to emit to room variations (in case socket connects later)
       // But DO NOT broadcast to all restaurants
       roomVariations.forEach(room => {
@@ -191,7 +192,7 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
         });
         console.log(`📤 Emitted to room ${room} (no sockets found, but room exists for future connections)`);
       });
-      
+
       // Return error instead of success
       return {
         success: false,
@@ -200,6 +201,23 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
         error: 'Restaurant not connected to Socket.IO',
         message: `Restaurant ${normalizedRestaurantId} (${order.restaurantName}) is not connected. Order notification not sent.`
       };
+    }
+
+    // 🔥 Send Push Notification (FCM)
+    try {
+      await sendOrderPushNotification(normalizedRestaurantId, 'restaurant', {
+        title: '🔔 New Order Received!',
+        body: `Order #${order.orderId} for ₹${order.pricing.total}`,
+        data: {
+          orderId: order.orderId,
+          orderMongoId: order._id.toString(),
+          type: 'new_order',
+          click_action: '/orders'
+        }
+      });
+      console.log(`✅ [Push Notification] Sent to restaurant ${normalizedRestaurantId} for order ${order.orderId}`);
+    } catch (pushError) {
+      console.error('❌ [Push Notification] Error sending to restaurant:', pushError);
     }
 
     return {

@@ -10,7 +10,9 @@ import {
   getCurrentUser,
   googleAuth,
   googleCallback,
-  firebaseGoogleLogin
+  firebaseGoogleLogin,
+  saveFcmToken,
+  removeFcmToken
 } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../../../shared/middleware/validate.js';
@@ -85,6 +87,10 @@ router.post('/logout', logout);
 
 // Firebase Google login (using Firebase Auth ID token)
 router.post('/firebase/google-login', firebaseGoogleLogin);
+
+// FCM Token Management
+router.post('/fcm-token', authenticate, saveFcmToken);
+router.delete('/fcm-token', authenticate, removeFcmToken);
 
 // Google OAuth routes
 router.get('/google/:role', googleAuth);

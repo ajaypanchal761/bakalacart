@@ -9,11 +9,15 @@ import {
   logout,
   getCurrentRestaurant,
   reverifyRestaurant,
-  firebaseGoogleLogin
+  firebaseGoogleLogin,
+  saveFcmToken,
+  removeFcmToken
 } from '../controllers/restaurantAuthController.js';
 import { authenticate } from '../middleware/restaurantAuth.js';
 import { validate } from '../../../shared/middleware/validate.js';
 import Joi from 'joi';
+
+console.log('📦 [DEBUG] Loading restaurantAuthRoutes.js');
 
 const router = express.Router();
 
@@ -68,6 +72,13 @@ const firebaseGoogleLoginSchema = Joi.object({
   idToken: Joi.string().required()
 });
 
+// FCM Token Management
+router.post('/fcm-token', authenticate, (req, res, next) => {
+  console.log('🎯 [DEBUG] Hit POST /api/restaurant/auth/fcm-token');
+  next();
+}, saveFcmToken);
+router.delete('/fcm-token', authenticate, removeFcmToken);
+
 // Public routes
 router.post('/send-otp', validate(sendOTPSchema), sendOTP);
 router.post('/verify-otp', validate(verifyOTPSchema), verifyOTP);
@@ -83,4 +94,3 @@ router.get('/me', authenticate, getCurrentRestaurant);
 router.post('/reverify', authenticate, reverifyRestaurant);
 
 export default router;
-

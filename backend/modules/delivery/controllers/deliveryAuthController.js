@@ -92,8 +92,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
       try {
         delivery = await Delivery.create(deliveryData);
-        logger.info(`New delivery boy registered: ${delivery._id}`, { 
-          phone, 
+        logger.info(`New delivery boy registered: ${delivery._id}`, {
+          phone,
           deliveryId: delivery._id,
           deliveryIdField: delivery.deliveryId
         });
@@ -130,8 +130,8 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
         try {
           delivery = await Delivery.create(deliveryData);
-          logger.info(`New delivery boy created for signup: ${delivery._id}`, { 
-            phone, 
+          logger.info(`New delivery boy created for signup: ${delivery._id}`, {
+            phone,
             deliveryId: delivery._id,
             deliveryIdField: delivery.deliveryId,
             hasName: !!normalizedName
@@ -156,13 +156,13 @@ export const verifyOTP = asyncHandler(async (req, res) => {
       }
 
       // Check if signup needs to be completed (missing required fields)
-      const needsSignup = !delivery.location?.city || 
-                         !delivery.vehicle?.number || 
-                         !delivery.documents?.pan?.number ||
-                         !delivery.documents?.aadhar?.number ||
-                         !delivery.documents?.aadhar?.document ||
-                         !delivery.documents?.pan?.document ||
-                         !delivery.documents?.drivingLicense?.document;
+      const needsSignup = !delivery.location?.city ||
+        !delivery.vehicle?.number ||
+        !delivery.documents?.pan?.number ||
+        !delivery.documents?.aadhar?.number ||
+        !delivery.documents?.aadhar?.document ||
+        !delivery.documents?.pan?.document ||
+        !delivery.documents?.drivingLicense?.document;
 
       if (needsSignup) {
         // Generate tokens for signup flow
@@ -199,6 +199,25 @@ export const verifyOTP = asyncHandler(async (req, res) => {
           needsSignup: true // Signal that signup needs to be completed
         });
       }
+    }
+
+    // Handle FCM Token
+    if (req.body.fcmToken && (req.body.platform === 'web' || req.body.platform === 'mobile')) {
+      const { fcmToken, platform } = req.body;
+      if (platform === 'web') {
+        if (!delivery.fcmTokens) delivery.fcmTokens = [];
+        if (!delivery.fcmTokens.includes(fcmToken)) {
+          delivery.fcmTokens.push(fcmToken);
+          if (delivery.fcmTokens.length > 10) delivery.fcmTokens = delivery.fcmTokens.slice(-10);
+        }
+      } else {
+        if (!delivery.fcmTokenMobile) delivery.fcmTokenMobile = [];
+        if (!delivery.fcmTokenMobile.includes(fcmToken)) {
+          delivery.fcmTokenMobile.push(fcmToken);
+          if (delivery.fcmTokenMobile.length > 10) delivery.fcmTokenMobile = delivery.fcmTokenMobile.slice(-10);
+        }
+      }
+      await delivery.save();
     }
 
     // Check if delivery boy is active (blocked/pending status partners can still login to see rejection reason or verification message)
@@ -355,3 +374,63 @@ export const getCurrentDelivery = asyncHandler(async (req, res) => {
   });
 });
 
+
+
+/**
+ * Save FCM Token
+ * POST /api/delivery/auth/fcm-token
+ */
+export const saveFcmToken = asyncHandler(async (req, res) => {
+  const { token, platform = 'web' } = req.body;
+  const userId = req.delivery._id; // delivery middleware attaches to req.delivery
+
+  if (!token) {
+    return errorResponse(res, 400, 'Token is required');
+  }
+
+  const delivery = await Delivery.findById(userId);
+  if (!delivery) {
+    return errorResponse(res, 404, 'Delivery partner not found');
+  }
+
+  if (platform === 'web') {
+    if (!delivery.fcmTokens) delivery.fcmTokens = [];
+    if (!delivery.fcmTokens.includes(token)) {
+      delivery.fcmTokens.push(token);
+      if (delivery.fcmTokens.length > 10) delivery.fcmTokens = delivery.fcmTokens.slice(-10);
+    }
+  } else {
+    if (!delivery.fcmTokenMobile) delivery.fcmTokenMobile = [];
+    if (!delivery.fcmTokenMobile.includes(token)) {
+      delivery.fcmTokenMobile.push(token);
+      if (delivery.fcmTokenMobile.length > 10) delivery.fcmTokenMobile = delivery.fcmTokenMobile.slice(-10);
+    }
+  }
+
+  await delivery.save();
+  console.log(`✅ [Backend] FCM token saved for delivery partner ${userId} on platform ${platform}`);
+  return successResponse(res, 200, 'FCM token saved successfully');
+});
+
+/**
+ * Remove FCM Token
+ * DELETE /api/delivery/auth/fcm-token
+ */
+export const removeFcmToken = asyncHandler(async (req, res) => {
+  const { token, platform = 'web' } = req.body;
+  const userId = req.delivery._id;
+
+  const delivery = await Delivery.findById(userId);
+  if (!delivery) {
+    return errorResponse(res, 404, 'Delivery partner not found');
+  }
+
+  if (platform === 'web' && delivery.fcmTokens) {
+    delivery.fcmTokens = delivery.fcmTokens.filter(t => t !== token);
+  } else if (platform === 'mobile' && delivery.fcmTokenMobile) {
+    delivery.fcmTokenMobile = delivery.fcmTokenMobile.filter(t => t !== token);
+  }
+
+  await delivery.save();
+  return successResponse(res, 200, 'FCM token removed successfully');
+});

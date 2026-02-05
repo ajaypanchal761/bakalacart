@@ -40,7 +40,7 @@ const restaurantSchema = new mongoose.Schema(
     // Authentication fields
     email: {
       type: String,
-      required: function() {
+      required: function () {
         return !this.phone && !this.googleId;
       },
       lowercase: true,
@@ -49,7 +49,7 @@ const restaurantSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: function() {
+      required: function () {
         return !this.email && !this.googleId;
       },
       trim: true,
@@ -85,7 +85,7 @@ const restaurantSchema = new mongoose.Schema(
     },
     ownerPhone: {
       type: String,
-      required: function() {
+      required: function () {
         return !!this.phone;
       },
     },
@@ -267,6 +267,14 @@ const restaurantSchema = new mongoose.Schema(
       enum: ['Commission Base', 'Subscription Base'],
       default: 'Commission Base',
     },
+    fcmTokens: {
+      type: [String],
+      default: []
+    },
+    fcmTokenMobile: {
+      type: [String],
+      default: []
+    },
   },
   {
     timestamps: true,
@@ -278,15 +286,15 @@ restaurantSchema.index({ email: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ phone: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 
-  // Hash password before saving
-  restaurantSchema.pre('save', async function(next) {
-    // Generate restaurantId FIRST (before any validation)
-    if (!this.restaurantId) {
-      const timestamp = Date.now();
-      const random = Math.floor(Math.random() * 10000);
-      this.restaurantId = `REST-${timestamp}-${random}`;
-    }
-  
+// Hash password before saving
+restaurantSchema.pre('save', async function (next) {
+  // Generate restaurantId FIRST (before any validation)
+  if (!this.restaurantId) {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    this.restaurantId = `REST-${timestamp}-${random}`;
+  }
+
   // Normalize phone number if it exists and is modified
   if (this.isModified('phone') && this.phone) {
     const normalized = normalizePhoneNumber(this.phone);
@@ -294,7 +302,7 @@ restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
       this.phone = normalized;
     }
   }
-  
+
   // Normalize ownerPhone if it exists and is modified
   if (this.isModified('ownerPhone') && this.ownerPhone) {
     const normalized = normalizePhoneNumber(this.ownerPhone);
@@ -302,7 +310,7 @@ restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
       this.ownerPhone = normalized;
     }
   }
-  
+
   // Normalize primaryContactNumber if it exists and is modified
   if (this.isModified('primaryContactNumber') && this.primaryContactNumber) {
     const normalized = normalizePhoneNumber(this.primaryContactNumber);
@@ -310,22 +318,22 @@ restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
       this.primaryContactNumber = normalized;
     }
   }
-  
+
   // Generate slug from name (always generate if name exists and slug doesn't)
   if (this.name && !this.slug) {
     let baseSlug = this.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
-    
+
     // Ensure slug is not empty
     if (!baseSlug) {
       baseSlug = `restaurant-${this.restaurantId}`;
     }
-    
+
     this.slug = baseSlug;
   }
-  
+
   // CRITICAL: For phone signups, ensure email field is completely unset (not null/undefined)
   // This prevents duplicate key errors on sparse unique index
   if (this.phone && !this.email && (this.signupMethod === 'phone' || !this.signupMethod)) {
@@ -337,28 +345,28 @@ restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
       this.$unset.email = '';
     }
   }
-  
+
   // Hash password if it's modified
   if (this.isModified('password') && this.password) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
   }
-  
+
   // Set default ownerEmail if not set and phone exists
   if (!this.ownerEmail && this.phone && !this.email) {
     this.ownerEmail = `${this.phone.replace(/\D/g, '')}@restaurant.appzeto.com`;
   }
-  
+
   // Set ownerEmail from email if email exists and ownerEmail not set
   if (this.email && !this.ownerEmail) {
     this.ownerEmail = this.email;
   }
-  
+
   next();
 });
 
 // Method to compare password
-restaurantSchema.methods.comparePassword = async function(candidatePassword) {
+restaurantSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password) {
     return false;
   }
