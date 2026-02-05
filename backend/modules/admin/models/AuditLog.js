@@ -9,11 +9,11 @@ const auditLogSchema = new mongoose.Schema({
     index: true
   },
   entityId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String, // Changed from ObjectId to String to support custom order IDs
     required: true,
     index: true
   },
-  
+
   // Action Information
   action: {
     type: String,
@@ -26,7 +26,7 @@ const auditLogSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  
+
   // User/Actor Information
   performedBy: {
     type: {
@@ -41,14 +41,14 @@ const auditLogSchema = new mongoose.Schema({
     name: String,
     email: String
   },
-  
+
   // Changes/Details
   changes: {
     type: Map,
     of: mongoose.Schema.Types.Mixed,
     comment: 'Before and after values for updates'
   },
-  
+
   // Transaction Details (for financial transactions)
   transactionDetails: {
     amount: Number,
@@ -56,7 +56,7 @@ const auditLogSchema = new mongoose.Schema({
     type: String,
     status: String,
     orderId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: String, // Changed from ObjectId to String to support custom order IDs
       ref: 'Order',
       sparse: true
     },
@@ -66,7 +66,7 @@ const auditLogSchema = new mongoose.Schema({
       sparse: true
     }
   },
-  
+
   // Commission Change Details
   commissionChange: {
     restaurantId: {
@@ -80,7 +80,7 @@ const auditLogSchema = new mongoose.Schema({
     newType: String,
     reason: String
   },
-  
+
   // Metadata
   description: {
     type: String,
@@ -92,7 +92,7 @@ const auditLogSchema = new mongoose.Schema({
     type: Map,
     of: mongoose.Schema.Types.Mixed
   },
-  
+
   // Status
   status: {
     type: String,
@@ -113,7 +113,7 @@ auditLogSchema.index({ createdAt: -1 });
 auditLogSchema.index({ 'commissionChange.restaurantId': 1 });
 
 // Static method to create audit log
-auditLogSchema.statics.createLog = async function(logData) {
+auditLogSchema.statics.createLog = async function (logData) {
   return await this.create({
     ...logData,
     createdAt: new Date()

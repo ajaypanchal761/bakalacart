@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { 
+import {
   ArrowLeft,
   Search,
   Mic,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react"
 import { deliveryAPI, uploadAPI } from "@/lib/api"
 import { toast } from "sonner"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 
 export default function MyOrders() {
   const navigate = useNavigate()
@@ -31,23 +31,31 @@ export default function MyOrders() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("pending")
+  const [activeBillUploadOrder, setActiveBillUploadOrder] = useState(null)
+
+  // Rating & Review State
+  const [showRatingPopup, setShowRatingPopup] = useState(false)
+  const [selectedOrderForRating, setSelectedOrderForRating] = useState(null)
+  const [ratingValue, setRatingValue] = useState(5)
+  const [reviewText, setReviewText] = useState("")
+  const [submittingRating, setSubmittingRating] = useState(false)
 
   // Fetch orders from API
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true)
-        
+
         let ordersData = []
-        
+
         if (activeTab === "pending") {
           // Fetch active assigned orders for pending tab
           console.log('🔄 Fetching active assigned orders...')
-          const response = await deliveryAPI.getOrders({ 
-            includeDelivered: false, 
-            limit: 100 
+          const response = await deliveryAPI.getOrders({
+            includeDelivered: false,
+            limit: 100
           })
-          
+
           if (response?.data?.success && response?.data?.data?.orders) {
             ordersData = response.data.data.orders || []
             console.log('✅ Found active orders:', ordersData.length)
@@ -61,7 +69,7 @@ export default function MyOrders() {
             status: activeTab === "delivered" ? "Completed" : activeTab === "cancelled" ? "Cancelled" : "ALL TRIPS",
             limit: 1000
           })
-          
+
           if (response?.data?.success && response?.data?.data?.trips) {
             ordersData = response.data.data.trips || []
             console.log(`✅ Found ${activeTab} orders:`, ordersData.length)
@@ -69,7 +77,7 @@ export default function MyOrders() {
             ordersData = response.data.data.orders || []
           }
         }
-        
+
         setOrders(ordersData)
       } catch (error) {
         console.error('❌ Error fetching orders:', error)
@@ -99,73 +107,55 @@ export default function MyOrders() {
 
   // Get restaurant location/address - Show full pinned address (formattedAddress)
   const getRestaurantLocation = (order) => {
-    // Priority 1: Use formattedAddress (pinned live location from restaurant)
-    if (order.restaurantId?.location?.formattedAddress) {
-      const addr = order.restaurantId.location.formattedAddress.trim()
-      // Check if it's just coordinates (latitude, longitude format)
-      const isCoordinates = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(addr)
-      if (!isCoordinates && addr !== 'Select location') {
-        return addr
-      }
-    }
-    
-    // Priority 2: Build from address components (addressLine1, area, city, state, pincode)
+    // Priority 1: Use direct snapshot fields from the order object
+    if (order.restaurantAddress) return order.restaurantAddress.trim()
+    if (order.restaurantLocation?.address) return order.restaurantLocation.address.trim()
+    if (order.restaurantLocation?.formattedAddress) return order.restaurantLocation.formattedAddress.trim()
+
+    // Priority 2: Use specific address fields from populated restaurantId.location
     if (order.restaurantId?.location) {
       const loc = order.restaurantId.location
-      const addressParts = []
-      
-      if (loc.addressLine1) {
-        addressParts.push(loc.addressLine1.trim())
-      } else if (loc.street) {
-        addressParts.push(loc.street.trim())
+
+      // Check full address string first
+      if (loc.address && loc.address.trim() !== '' && loc.address.trim() !== 'Location not available') {
+        return loc.address.trim()
       }
-      
-      if (loc.addressLine2) {
-        addressParts.push(loc.addressLine2.trim())
-      }
-      
-      if (loc.area) {
-        addressParts.push(loc.area.trim())
-      }
-      
-      if (loc.city) {
-        addressParts.push(loc.city.trim())
-      }
-      
-      if (loc.state) {
-        addressParts.push(loc.state.trim())
-      }
-      
-      const pinCode = loc.pincode || loc.zipCode || loc.postalCode
-      if (pinCode) {
-        addressParts.push(pinCode.toString().trim())
-      }
-      
-      if (addressParts.length > 0) {
-        return addressParts.join(', ')
+
+      // Check formatted address from maps
+      if (loc.formattedAddress && loc.formattedAddress.trim() !== '' && loc.formattedAddress.trim() !== 'Select location') {
+        const isCoordinates = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(loc.formattedAddress.trim())
+        if (!isCoordinates) return loc.formattedAddress.trim()
       }
     }
-    
-    // Priority 3: Use address field
-    if (order.restaurantId?.location?.address) {
-      return order.restaurantId.location.address.trim()
+
+    // Priority 3: Build from address components as fallback
+    if (order.restaurantId?.location) {
+      const loc = order.restaurantId.location
+      const parts = []
+
+      // Add street/address line info
+      if (loc.addressLine1) parts.push(loc.addressLine1.trim())
+      else if (loc.street) parts.push(loc.street.trim())
+
+      if (loc.addressLine2) parts.push(loc.addressLine2.trim())
+      if (loc.area) parts.push(loc.area.trim())
+      if (loc.city) parts.push(loc.city.trim())
+      if (loc.state) parts.push(loc.state.trim())
+
+      const pin = loc.pincode || loc.zipCode || loc.postalCode
+      if (pin) parts.push(pin.toString().trim())
+
+      if (parts.length > 0) return parts.join(', ')
     }
-    
-    // Priority 4: Fallback to restaurant address
-    if (order.restaurantId?.address) {
-      return order.restaurantId.address.trim()
-    }
-    
-    // Priority 5: Fallback to area and city
-    if (order.restaurantId?.location?.area) {
-      return order.restaurantId.location.area + (order.restaurantId.location.city ? ', ' + order.restaurantId.location.city : '')
-    }
-    
-    // Priority 6: Fallback to customer address city/state
+
+    // Priority 4: Final fallbacks
+    if (order.restaurantId?.address) return order.restaurantId.address.trim()
+
+    // Last resort: show customer city/state if absolutely nothing else (better than empty)
     if (order.address?.city) {
       return order.address.city + (order.address.state ? ', ' + order.address.state : '')
     }
-    
+
     return 'Location not available'
   }
 
@@ -203,67 +193,102 @@ export default function MyOrders() {
     const status = order.status || order.orderStatus
     const deliveryPhase = order.deliveryState?.currentPhase
     return (
-      status !== 'delivered' && 
-      status !== 'completed' && 
+      status !== 'delivered' &&
+      status !== 'completed' &&
       status !== 'cancelled' &&
       deliveryPhase !== 'completed'
     )
   }
 
-  // Check if order is accepted by delivery boy
+  // Check if order is accepted by delivery boy - Hierarchical (anything after acceptance)
   const isAcceptedByDeliveryBoy = (order) => {
-    const deliveryStateStatus = order.deliveryState?.status
-    const deliveryPhase = order.deliveryState?.currentPhase
+    const status = order.deliveryState?.status || order.status;
+    const phase = order.deliveryState?.currentPhase;
     return (
-      deliveryStateStatus === 'accepted' ||
-      deliveryPhase === 'en_route_to_pickup' ||
-      deliveryPhase === 'at_pickup' ||
-      deliveryPhase === 'en_route_to_delivery' ||
-      deliveryPhase === 'at_delivery'
-    )
+      status === 'accepted' ||
+      status === 'reached_pickup' ||
+      status === 'order_confirmed' ||
+      status === 'reached_drop' ||
+      status === 'delivered' ||
+      status === 'completed' ||
+      [
+        'en_route_to_pickup',
+        'at_pickup',
+        'en_route_to_delivery',
+        'at_delivery',
+        'delivered',
+        'completed'
+      ].includes(phase)
+    );
   }
 
-  // Check if reached pickup confirmed
+  // Check if reached pickup confirmed - Hierarchical (anything after reached pickup)
   const isReachedPickup = (order) => {
-    const deliveryStateStatus = order.deliveryState?.status
-    const deliveryPhase = order.deliveryState?.currentPhase
+    const status = order.deliveryState?.status || order.status;
+    const phase = order.deliveryState?.currentPhase;
     return (
-      deliveryStateStatus === 'reached_pickup' ||
-      deliveryPhase === 'at_pickup'
-    )
+      status === 'reached_pickup' ||
+      status === 'order_confirmed' ||
+      status === 'reached_drop' ||
+      status === 'delivered' ||
+      status === 'completed' ||
+      [
+        'at_pickup',
+        'en_route_to_delivery',
+        'at_delivery',
+        'delivered',
+        'completed'
+      ].includes(phase)
+    );
   }
 
-  // Check if order picked up (order ID confirmed)
+  // Check if order picked up - Hierarchical (anything after pickup)
   const isOrderPickedUp = (order) => {
-    const deliveryStateStatus = order.deliveryState?.status
-    const deliveryPhase = order.deliveryState?.currentPhase
+    const status = order.deliveryState?.status || order.status;
+    const phase = order.deliveryState?.currentPhase;
     return (
-      deliveryStateStatus === 'order_confirmed' ||
-      deliveryPhase === 'en_route_to_delivery' ||
-      deliveryPhase === 'picked_up'
-    )
+      status === 'order_confirmed' ||
+      status === 'reached_drop' ||
+      status === 'delivered' ||
+      status === 'completed' ||
+      [
+        'en_route_to_delivery',
+        'at_delivery',
+        'delivered',
+        'completed'
+      ].includes(phase) ||
+      phase === 'picked_up'
+    );
   }
 
-  // Check if reached drop
+  // Check if reached drop - Hierarchical (anything after reached drop)
   const isReachedDrop = (order) => {
-    const deliveryStateStatus = order.deliveryState?.status
-    const deliveryPhase = order.deliveryState?.currentPhase
+    const status = order.deliveryState?.status || order.status;
+    const phase = order.deliveryState?.currentPhase;
     return (
-      deliveryStateStatus === 'reached_drop' ||
-      deliveryPhase === 'at_delivery'
-    )
+      status === 'reached_drop' ||
+      status === 'delivered' ||
+      status === 'completed' ||
+      [
+        'at_delivery',
+        'delivered',
+        'completed'
+      ].includes(phase)
+    );
   }
 
-  // Check if order delivered
+  // Check if order delivered - Hierarchical (anything after delivery)
   const isOrderDelivered = (order) => {
-    const status = order.status || order.orderStatus
-    const deliveryStateStatus = order.deliveryState?.status
-    const deliveryPhase = order.deliveryState?.currentPhase
+    const status = order.deliveryState?.status || order.status;
+    const phase = order.deliveryState?.currentPhase;
     return (
       status === 'delivered' ||
-      deliveryStateStatus === 'delivered' ||
-      deliveryPhase === 'delivered'
-    )
+      status === 'completed' ||
+      [
+        'delivered',
+        'completed'
+      ].includes(phase)
+    );
   }
 
   // Filter orders by search query and tab
@@ -289,7 +314,7 @@ export default function MyOrders() {
       const status = order.status || order.orderStatus
       return status === 'cancelled'
     }
-    
+
     return true
   })
 
@@ -310,33 +335,64 @@ export default function MyOrders() {
 
     let currentLocation = null
     try {
-      // Get current location
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 5000,
-          enableHighAccuracy: true
+      // Get current location with fallback
+      try {
+        // First try to get from localStorage (saved by DeliveryHome.jsx) for immediate response
+        const savedLocation = localStorage.getItem('deliveryBoyLastLocation')
+        if (savedLocation) {
+          try {
+            const parsed = JSON.parse(savedLocation)
+            if (Array.isArray(parsed) && parsed.length === 2) {
+              currentLocation = parsed
+              console.log('📍 Using saved location from localStorage:', currentLocation)
+            }
+          } catch (e) { /* ignore parse error */ }
+        }
+
+        // Then try fresh location if GPS is available
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 8000, // Reduced timeout for faster fallback
+            enableHighAccuracy: true
+          })
+        }).catch(err => {
+          console.warn('⚠️ High accuracy GPS failed, trying low accuracy...', err)
+          return new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              timeout: 5000,
+              enableHighAccuracy: false
+            })
+          })
         })
+        currentLocation = [position.coords.latitude, position.coords.longitude]
+        console.log('📍 Got fresh location:', currentLocation)
+      } catch (locErr) {
+        console.error('❌ Failed to get live location:', locErr)
+        // If currentLocation was already set from localStorage, we keep it
+        // otherwise it remains null and backend will fallback to profile
+      }
+
+      console.log('📦 Calling acceptOrder API with:', {
+        orderId,
+        location: currentLocation ? `${currentLocation[0]}, ${currentLocation[1]}` : 'fallback to profile'
       })
 
-      currentLocation = [position.coords.latitude, position.coords.longitude]
-
       const response = await deliveryAPI.acceptOrder(orderId, {
-        currentLat: currentLocation[0],
-        currentLng: currentLocation[1]
+        lat: currentLocation ? currentLocation[0] : null,
+        lng: currentLocation ? currentLocation[1] : null
       })
 
       if (response.data?.success) {
         toast.success('Order accepted successfully!')
         // Refresh orders
-        const fetchResponse = await deliveryAPI.getOrders({ 
-          includeDelivered: false, 
-          limit: 100 
+        const fetchResponse = await deliveryAPI.getOrders({
+          includeDelivered: false,
+          limit: 100
         })
         if (fetchResponse?.data?.success && fetchResponse?.data?.data?.orders) {
           setOrders(fetchResponse.data.data.orders || [])
         }
-        // Navigate to order details
-        navigate(`/delivery/order/${orderId}`)
+        // Removed auto-navigation to stay on orders page for the sequential workflow
       } else {
         toast.error(response.data?.message || 'Failed to accept order')
       }
@@ -350,12 +406,12 @@ export default function MyOrders() {
         orderId: orderId,
         location: currentLocation || 'Not available'
       })
-      
+
       // Show more detailed error message
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          error.message || 
-                          'Failed to accept order'
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to accept order'
       toast.error(`Error: ${errorMessage}`)
     }
   }
@@ -376,9 +432,9 @@ export default function MyOrders() {
       if (response.data?.success) {
         toast.success('Order rejected')
         // Refresh orders
-        const fetchResponse = await deliveryAPI.getOrders({ 
-          includeDelivered: false, 
-          limit: 100 
+        const fetchResponse = await deliveryAPI.getOrders({
+          includeDelivered: false,
+          limit: 100
         })
         if (fetchResponse?.data?.success && fetchResponse?.data?.data?.orders) {
           setOrders(fetchResponse.data.data.orders || [])
@@ -392,114 +448,140 @@ export default function MyOrders() {
     }
   }
 
-  // Swipeable Reached Pickup Button Component (only swipe right)
-  const SwipeableReachedPickupButton = ({ order, onReachedPickup }) => {
-    const [swipeProgress, setSwipeProgress] = useState(0)
-    const [isSwiping, setIsSwiping] = useState(false)
+  // Reusable Swipe Button Component
+  const SwipeButton = ({ label, onComplete, color = "bg-green-600", progressColor = "bg-green-500", icon = <ArrowRight className="w-5 h-5 text-white" /> }) => {
+    const [progress, setProgress] = useState(0)
+    const [isAnimating, setIsAnimating] = useState(false)
     const buttonRef = useRef(null)
-    const startXRef = useRef(0)
-    const currentXRef = useRef(0)
+    const startX = useRef(0)
+    const startY = useRef(0)
+    const isSwiping = useRef(false)
 
-    const handleTouchStart = (e) => {
-      e.stopPropagation()
-      const touch = e.touches[0]
-      startXRef.current = touch.clientX
-      currentXRef.current = touch.clientX
-      setIsSwiping(true)
-      setSwipeProgress(0)
+    const handleStart = (clientX, clientY) => {
+      startX.current = clientX
+      startY.current = clientY
+      isSwiping.current = false
+      setIsAnimating(false)
+      setProgress(0)
     }
 
-    const handleTouchMove = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
+    const handleMove = (clientX, clientY) => {
+      if (!startX.current) return
+      const deltaX = clientX - startX.current
+      const deltaY = clientY - startY.current
 
-      const touch = e.touches[0]
-      currentXRef.current = touch.clientX
-      const deltaX = currentXRef.current - startXRef.current
-      
-      // Only allow right swipe (positive deltaX)
-      if (deltaX < 0) {
-        setSwipeProgress(0)
+      // Horizontal swipe detection
+      if (deltaX > 5 && deltaX > Math.abs(deltaY)) {
+        isSwiping.current = true
+        const buttonWidth = buttonRef.current?.offsetWidth || 300
+        const circleWidth = 48
+        const maxSwipe = buttonWidth - circleWidth - 8
+        const newProgress = Math.min(Math.max(deltaX / maxSwipe, 0), 1)
+        setProgress(newProgress)
+      }
+    }
+
+    const handleEnd = () => {
+      if (!isSwiping.current) {
+        setProgress(0)
+        startX.current = 0
         return
       }
-
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const progress = Math.min(deltaX / buttonWidth, 1)
-      setSwipeProgress(progress)
-    }
-
-    const handleTouchEnd = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
-
-      const deltaX = currentXRef.current - startXRef.current
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const threshold = buttonWidth * 0.6 // 60% swipe required
-
-      if (deltaX >= threshold) {
-        // Swipe right = Confirm Reached Pickup
-        onReachedPickup(order)
+      if (progress > 0.75) {
+        setIsAnimating(true)
+        setProgress(1)
+        setTimeout(() => {
+          onComplete()
+          setTimeout(() => {
+            setProgress(0)
+            setIsAnimating(false)
+          }, 300)
+        }, 200)
+      } else {
+        setProgress(0)
       }
-
-      // Reset
-      setIsSwiping(false)
-      setSwipeProgress(0)
-      startXRef.current = 0
-      currentXRef.current = 0
+      isSwiping.current = false
+      startX.current = 0
     }
 
     return (
-      <div 
-        ref={buttonRef}
-        className="relative w-full h-14 rounded-xl overflow-hidden bg-green-600"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ touchAction: 'pan-y' }}
-      >
-        {/* Swipe Progress Indicator */}
-        {swipeProgress > 0 && (
+      <div className="relative w-full h-full">
+        <motion.div
+          ref={buttonRef}
+          className={`relative w-full h-full ${color} rounded-xl overflow-hidden`}
+          style={{ touchAction: 'pan-x' }}
+          onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
+          onTouchMove={(e) => handleMove(e.touches[0].clientX, e.touches[0].clientY)}
+          onTouchEnd={handleEnd}
+          onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+          onMouseMove={(e) => {
+            if (e.buttons === 1) handleMove(e.clientX, e.clientY)
+          }}
+          onMouseUp={handleEnd}
+          onMouseLeave={handleEnd}
+        >
           <motion.div
-            className="absolute inset-0 bg-green-700"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: swipeProgress }}
-            transition={{ duration: 0 }}
-            style={{ transformOrigin: 'left' }}
+            className={`absolute inset-0 ${progressColor} rounded-xl`}
+            animate={{ width: `${progress * 100}%` }}
+            transition={isAnimating ? { type: "spring", stiffness: 200, damping: 25 } : { duration: 0 }}
           />
-        )}
-
-        {/* Button Content */}
-        <div className="relative z-10 h-full flex items-center justify-center px-6">
-          <div className="flex items-center gap-3 text-white font-semibold">
-            <span className="text-base">
-              {swipeProgress > 0.5 ? 'Release to Confirm' : 'Swipe to Confirm Reached Pickup'}
-            </span>
-            {swipeProgress > 0.5 && (
-              <Check className="w-5 h-5" />
-            )}
-            {swipeProgress <= 0.5 && (
-              <ChevronRight className="w-5 h-5" />
-            )}
+          <div className="relative flex items-center h-full px-1">
+            <motion.div
+              className="w-12 h-12 bg-gray-900 rounded-lg flex items-center justify-center shrink-0 relative z-20 shadow-xl"
+              animate={{ x: progress * (buttonRef.current ? (buttonRef.current.offsetWidth - 56) : 240) }}
+              transition={isAnimating ? { type: "spring", stiffness: 300, damping: 30 } : { duration: 0 }}
+            >
+              {icon}
+            </motion.div>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-white font-bold text-xs uppercase tracking-widest">{label}</span>
+            </div>
           </div>
-        </div>
-
-        {/* Swipe Hint */}
-        {swipeProgress === 0 && (
-          <div className="absolute inset-0 flex items-center justify-end px-4 text-white/60 text-xs pointer-events-none">
-            <span className="flex items-center gap-1">
-              Swipe Right
-              <ChevronRight className="w-3 h-3" />
-            </span>
-          </div>
-        )}
+        </motion.div>
       </div>
     )
   }
 
+  // 1. Swipeable Accept/Reject Button (Integrated into one green bar)
+  const ActionButton = ({ order, onAccept, onReject }) => (
+    <div className="relative w-full overflow-hidden rounded-xl h-14 flex items-center bg-green-600 shadow-lg">
+      <div className="flex-1 h-full min-w-0">
+        <SwipeButton
+          label="Accept Order"
+          onComplete={() => onAccept(order)}
+          color="bg-transparent"
+          progressColor="bg-green-500"
+          icon={<Check className="w-5 h-5 text-white" />}
+        />
+      </div>
+      <div className="w-[1px] h-8 bg-white/20" />
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onReject(order)
+        }}
+        className="px-6 h-full text-white font-bold text-xs uppercase tracking-widest hover:bg-black/10 transition-colors shrink-0"
+      >
+        Reject
+      </button>
+    </div>
+  )
+
+  // 2. Swipeable Reached Pickup Button
+  const ReachedPickupButton = ({ order, onReachedPickup }) => (
+    <SwipeButton
+      label="Reached Pickup"
+      onComplete={() => onReachedPickup(order)}
+      color="bg-green-600"
+      progressColor="bg-green-500"
+      icon={<MapPin className="w-5 h-5 text-white" />}
+    />
+  )
+
   // State for bill image upload
   const [billImages, setBillImages] = useState({}) // { orderId: imageUrl }
   const [uploadingBills, setUploadingBills] = useState({}) // { orderId: true/false }
-  const fileInputRefs = useRef({}) // { orderId: inputRef }
+  const fileInputRefs = useRef(null)
 
   // Handle reached pickup
   const handleReachedPickup = async (order) => {
@@ -515,9 +597,9 @@ export default function MyOrders() {
       if (response.data?.success) {
         toast.success('Reached pickup confirmed!')
         // Refresh orders
-        const fetchResponse = await deliveryAPI.getOrders({ 
-          includeDelivered: false, 
-          limit: 100 
+        const fetchResponse = await deliveryAPI.getOrders({
+          includeDelivered: false,
+          limit: 100
         })
         if (fetchResponse?.data?.success && fetchResponse?.data?.data?.orders) {
           setOrders(fetchResponse.data.data.orders || [])
@@ -535,7 +617,7 @@ export default function MyOrders() {
   const handleBillImageCapture = async (order, e) => {
     e.stopPropagation()
     const orderId = order.orderId || order._id
-    
+
     // Check if Flutter handler is available
     if (window.flutter_inappwebview && typeof window.flutter_inappwebview.callHandler === 'function') {
       try {
@@ -545,18 +627,20 @@ export default function MyOrders() {
           multiple: false,
           quality: 0.8
         })
-        
+
         if (result && result.success && result.file) {
           await handleBillImageUpload(order, result.file)
         }
       } catch (error) {
         console.error('Error with Flutter camera:', error)
         // Fallback to file input
-        fileInputRefs.current[orderId]?.click()
+        setActiveBillUploadOrder(order)
+        setTimeout(() => fileInputRefs.current?.click(), 100)
       }
     } else {
       // Fallback to file input
-      fileInputRefs.current[orderId]?.click()
+      setActiveBillUploadOrder(order)
+      setTimeout(() => fileInputRefs.current?.click(), 100)
     }
   }
 
@@ -564,17 +648,17 @@ export default function MyOrders() {
   const handleBillImageSelect = async (order, e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    
+
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file')
       return
     }
-    
+
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image size should be less than 5MB')
       return
     }
-    
+
     await handleBillImageUpload(order, file)
   }
 
@@ -582,12 +666,12 @@ export default function MyOrders() {
   const handleBillImageUpload = async (order, file) => {
     const orderId = order.orderId || order._id
     setUploadingBills(prev => ({ ...prev, [orderId]: true }))
-    
+
     try {
       const response = await uploadAPI.uploadMedia(file, {
         folder: 'appzeto/delivery/bills'
       })
-      
+
       if (response?.data?.success && response?.data?.data?.url) {
         setBillImages(prev => ({ ...prev, [orderId]: response.data.data.url }))
         toast.success('Bill image uploaded!')
@@ -601,6 +685,7 @@ export default function MyOrders() {
       setUploadingBills(prev => ({ ...prev, [orderId]: false }))
     }
   }
+
 
   // Handle order pickup (after bill upload)
   const handleOrderPickup = async (order) => {
@@ -624,9 +709,9 @@ export default function MyOrders() {
       if (response.data?.success) {
         toast.success('Order picked up!')
         // Refresh orders
-        const fetchResponse = await deliveryAPI.getOrders({ 
-          includeDelivered: false, 
-          limit: 100 
+        const fetchResponse = await deliveryAPI.getOrders({
+          includeDelivered: false,
+          limit: 100
         })
         if (fetchResponse?.data?.success && fetchResponse?.data?.data?.orders) {
           setOrders(fetchResponse.data.data.orders || [])
@@ -654,9 +739,9 @@ export default function MyOrders() {
       if (response.data?.success) {
         toast.success('Reached drop confirmed!')
         // Refresh orders
-        const fetchResponse = await deliveryAPI.getOrders({ 
-          includeDelivered: false, 
-          limit: 100 
+        const fetchResponse = await deliveryAPI.getOrders({
+          includeDelivered: false,
+          limit: 100
         })
         if (fetchResponse?.data?.success && fetchResponse?.data?.data?.orders) {
           setOrders(fetchResponse.data.data.orders || [])
@@ -679,32 +764,50 @@ export default function MyOrders() {
     }
 
     try {
-      const response = await deliveryAPI.completeDelivery(orderId)
+      // Instead of completing, we show the rating popup first
+      setSelectedOrderForRating(order)
+      setShowRatingPopup(true)
+    } catch (error) {
+      console.error('Error opening rating popup:', error)
+      toast.error('Something went wrong')
+    }
+  }
+
+  // Handle Rating Submission
+  const handleRatingSubmit = async () => {
+    if (!selectedOrderForRating) return
+
+    setSubmittingRating(true)
+    try {
+      const orderId = selectedOrderForRating.orderId || selectedOrderForRating._id
+      const response = await deliveryAPI.completeDelivery(orderId, ratingValue, reviewText)
 
       if (response.data?.success) {
         const earnings = response.data.data?.earnings?.amount || response.data.data?.totalEarning || 0
-        toast.success(`Order delivered! Earnings: ₹${earnings.toFixed(2)}`)
-        // Refresh orders
-        const fetchResponse = await deliveryAPI.getOrders({ 
-          includeDelivered: false, 
-          limit: 100 
+        toast.success('Review submitted! Order completed.')
+
+        setShowRatingPopup(false)
+        navigate('/delivery/order-completed', {
+          state: {
+            earnings: earnings,
+            orderId: selectedOrderForRating.orderId || orderId
+          }
         })
-        if (fetchResponse?.data?.success && fetchResponse?.data?.data?.orders) {
-          setOrders(fetchResponse.data.data.orders || [])
-        }
       } else {
-        toast.error(response.data?.message || 'Failed to complete delivery')
+        toast.error(response.data?.message || 'Failed to submit review')
       }
     } catch (error) {
-      console.error('Error completing delivery:', error)
-      toast.error(error.response?.data?.message || 'Failed to complete delivery')
+      console.error('Error submitting rating:', error)
+      toast.error('Failed to submit review. Please try again.')
+    } finally {
+      setSubmittingRating(false)
     }
   }
 
   // Handle location button click - navigate to DeliveryHome with order data (restaurant location)
   const handleRestaurantLocationClick = async (order, e) => {
     e.stopPropagation()
-    
+
     try {
       // Get current location
       const position = await new Promise((resolve, reject) => {
@@ -715,7 +818,7 @@ export default function MyOrders() {
       })
 
       const currentLocation = [position.coords.latitude, position.coords.longitude]
-      
+
       // Prepare order data for DeliveryHome (restaurant route)
       const orderData = {
         id: order.orderId || order._id,
@@ -760,7 +863,7 @@ export default function MyOrders() {
   // Handle customer location button click - navigate to DeliveryHome with customer route
   const handleCustomerLocationClick = async (order, e) => {
     e.stopPropagation()
-    
+
     try {
       // Get current location
       const position = await new Promise((resolve, reject) => {
@@ -771,7 +874,7 @@ export default function MyOrders() {
       })
 
       const currentLocation = [position.coords.latitude, position.coords.longitude]
-      
+
       // Prepare order data for DeliveryHome (customer route)
       const orderData = {
         id: order.orderId || order._id,
@@ -812,400 +915,64 @@ export default function MyOrders() {
     }
   }
 
-  // Swipeable Button Component
-  const SwipeableActionButton = ({ order, onAccept, onReject }) => {
-    const [swipeProgress, setSwipeProgress] = useState(0)
-    const [isSwiping, setIsSwiping] = useState(false)
-    const [swipeDirection, setSwipeDirection] = useState(null) // 'accept' or 'reject'
-    const buttonRef = useRef(null)
-    const startXRef = useRef(0)
-    const currentXRef = useRef(0)
+  // No swipeable action button needed anymore, replaced by ActionButton
 
-    const handleTouchStart = (e) => {
-      e.stopPropagation()
-      const touch = e.touches[0]
-      startXRef.current = touch.clientX
-      currentXRef.current = touch.clientX
-      setIsSwiping(true)
-      setSwipeProgress(0)
-      setSwipeDirection(null)
-    }
-
-    const handleTouchMove = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
-
-      const touch = e.touches[0]
-      currentXRef.current = touch.clientX
-      const deltaX = currentXRef.current - startXRef.current
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const progress = Math.abs(deltaX) / buttonWidth
-      const clampedProgress = Math.min(progress, 1)
-
-      setSwipeProgress(clampedProgress)
-
-      // Determine direction
-      if (deltaX > 20) {
-        setSwipeDirection('accept') // Swipe right = accept
-      } else if (deltaX < -20) {
-        setSwipeDirection('reject') // Swipe left = reject
-      } else {
-        setSwipeDirection(null)
-      }
-    }
-
-    const handleTouchEnd = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
-
-      const deltaX = currentXRef.current - startXRef.current
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const threshold = buttonWidth * 0.6 // 60% swipe required
-
-      if (Math.abs(deltaX) >= threshold) {
-        if (deltaX > 0 && swipeDirection === 'accept') {
-          // Swipe right = Accept
-          onAccept(order)
-        } else if (deltaX < 0 && swipeDirection === 'reject') {
-          // Swipe left = Reject
-          onReject(order)
-        }
-      }
-
-      // Reset
-      setIsSwiping(false)
-      setSwipeProgress(0)
-      setSwipeDirection(null)
-      startXRef.current = 0
-      currentXRef.current = 0
-    }
-
-    const getButtonColor = () => {
-      if (swipeDirection === 'accept') {
-        return 'bg-green-600'
-      } else if (swipeDirection === 'reject') {
-        return 'bg-red-600'
-      }
-      return 'bg-green-600'
-    }
-
-    const getButtonText = () => {
-      if (swipeDirection === 'accept') {
-        return 'Accept Order'
-      } else if (swipeDirection === 'reject') {
-        return 'Reject Order'
-      }
-      return 'Swipe to Accept'
-    }
-
-    return (
-      <div 
-        ref={buttonRef}
-        className="relative w-full h-14 rounded-xl overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ touchAction: 'pan-y' }}
-      >
-        {/* Background */}
-        <div className={`absolute inset-0 ${getButtonColor()} transition-colors duration-200`} />
-        
-        {/* Swipe Progress Indicator */}
-        {swipeProgress > 0 && (
-          <motion.div
-            className={`absolute inset-0 ${
-              swipeDirection === 'accept' ? 'bg-green-700' : 'bg-red-700'
-            }`}
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: swipeProgress }}
-            transition={{ duration: 0 }}
-            style={{ transformOrigin: swipeDirection === 'accept' ? 'left' : 'right' }}
-          />
-        )}
-
-        {/* Button Content */}
-        <div className="relative z-10 h-full flex items-center justify-center px-6">
-          <div className="flex items-center gap-3 text-white font-semibold">
-            {swipeDirection === 'reject' && (
-              <X className="w-5 h-5" />
-            )}
-            <span className="text-base">{getButtonText()}</span>
-            {swipeDirection === 'accept' && (
-              <Check className="w-5 h-5" />
-            )}
-            {!swipeDirection && (
-              <ChevronRight className="w-5 h-5" />
-            )}
-          </div>
-        </div>
-
-        {/* Swipe Hint */}
-        {swipeProgress === 0 && (
-          <div className="absolute inset-0 flex items-center justify-between px-4 text-white/60 text-xs pointer-events-none">
-            <span className="flex items-center gap-1">
-              <X className="w-3 h-3" />
-              Reject
-            </span>
-            <span className="flex items-center gap-1">
-              Accept
-              <Check className="w-3 h-3" />
-            </span>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // Order Pickup Button Component (with bill upload)
+  // 3. Swipeable Order Pickup Button
   const OrderPickupButton = ({ order, onPickup, billImageUrl, isUploading, onCameraClick }) => {
-    const [swipeProgress, setSwipeProgress] = useState(0)
-    const [isSwiping, setIsSwiping] = useState(false)
-    const buttonRef = useRef(null)
-    const startXRef = useRef(0)
-    const currentXRef = useRef(0)
     const orderId = order.orderId || order._id
-
-    const handleTouchStart = (e) => {
-      e.stopPropagation()
-      if (!billImageUrl) return
-      const touch = e.touches[0]
-      startXRef.current = touch.clientX
-      currentXRef.current = touch.clientX
-      setIsSwiping(true)
-      setSwipeProgress(0)
-    }
-
-    const handleTouchMove = (e) => {
-      e.stopPropagation()
-      if (!isSwiping || !billImageUrl) return
-      const touch = e.touches[0]
-      currentXRef.current = touch.clientX
-      const deltaX = currentXRef.current - startXRef.current
-      if (deltaX < 0) {
-        setSwipeProgress(0)
-        return
-      }
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const progress = Math.min(deltaX / buttonWidth, 1)
-      setSwipeProgress(progress)
-    }
-
-    const handleTouchEnd = (e) => {
-      e.stopPropagation()
-      if (!isSwiping || !billImageUrl) return
-      const deltaX = currentXRef.current - startXRef.current
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const threshold = buttonWidth * 0.6
-      if (deltaX >= threshold) {
-        onPickup(order)
-      }
-      setIsSwiping(false)
-      setSwipeProgress(0)
-      startXRef.current = 0
-      currentXRef.current = 0
-    }
 
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex gap-3">
           <button
-            onClick={(e) => onCameraClick(order, e)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onCameraClick(order, e)
+            }}
             disabled={isUploading}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              isUploading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : billImageUrl
-                ? 'bg-green-600 hover:bg-green-700'
-                : 'bg-blue-600 hover:bg-blue-700'
-            } text-white font-medium`}
+            className={`flex-1 flex items-center justify-center gap-2 p-3.5 rounded-xl border-2 border-dashed transition-all ${billImageUrl ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-300 bg-gray-50 text-gray-500 hover:border-orange-500'
+              }`}
           >
             {isUploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Uploading...</span>
-              </>
-            ) : billImageUrl ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Bill Uploaded</span>
-              </>
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                <Camera className="w-4 h-4" />
-                <span>Capture Bill</span>
+                <Camera className="w-5 h-5" />
+                <span>{billImageUrl ? 'Update Bill' : 'Upload Bill Image'}</span>
               </>
             )}
           </button>
-          <input
-            ref={(el) => { fileInputRefs.current[orderId] = el }}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={(e) => handleBillImageSelect(order, e)}
-            className="hidden"
-          />
         </div>
-        <div 
-          ref={buttonRef}
-          className={`relative w-full h-14 rounded-xl overflow-hidden ${
-            billImageUrl ? 'bg-green-600' : 'bg-gray-400 cursor-not-allowed'
-          }`}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{ touchAction: billImageUrl ? 'pan-y' : 'none' }}
-        >
-          {swipeProgress > 0 && billImageUrl && (
-            <motion.div
-              className="absolute inset-0 bg-green-700"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: swipeProgress }}
-              transition={{ duration: 0 }}
-              style={{ transformOrigin: 'left' }}
-            />
-          )}
-          <div className="relative z-10 h-full flex items-center justify-center px-6">
-            <div className="flex items-center gap-3 text-white font-semibold">
-              <span className="text-base">
-                {!billImageUrl ? 'Upload bill to enable' : swipeProgress > 0.5 ? 'Release to Confirm' : 'Swipe to Confirm Pickup'}
-              </span>
-              {billImageUrl && swipeProgress > 0.5 && <Check className="w-5 h-5" />}
-              {billImageUrl && swipeProgress <= 0.5 && <ChevronRight className="w-5 h-5" />}
-            </div>
-          </div>
-        </div>
+        <SwipeButton
+          label="Confirm Order Pickup"
+          onComplete={() => {
+            if (billImageUrl) onPickup(order)
+            else toast.error('Please upload bill image first')
+          }}
+          color={billImageUrl ? "bg-green-600" : "bg-gray-300"}
+          progressColor={billImageUrl ? "bg-green-500" : "bg-gray-400"}
+          icon={<Package className="w-5 h-5 text-white" />}
+        />
       </div>
     )
   }
 
-  // Reached Drop Button Component
-  const ReachedDropButton = ({ order, onReachedDrop }) => {
-    const [swipeProgress, setSwipeProgress] = useState(0)
-    const [isSwiping, setIsSwiping] = useState(false)
-    const buttonRef = useRef(null)
-    const startXRef = useRef(0)
-    const currentXRef = useRef(0)
+  // 4. Swipeable Reached Drop Button
+  const ReachedDropButton = ({ order, onReachedDrop }) => (
+    <SwipeButton
+      label="Reached Drop"
+      onComplete={() => onReachedDrop(order)}
+      color="bg-green-600"
+      progressColor="bg-green-500"
+      icon={<Navigation className="w-5 h-5 text-white" />}
+    />
+  )
 
-    const handleTouchStart = (e) => {
-      e.stopPropagation()
-      const touch = e.touches[0]
-      startXRef.current = touch.clientX
-      currentXRef.current = touch.clientX
-      setIsSwiping(true)
-      setSwipeProgress(0)
-    }
-
-    const handleTouchMove = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
-      const touch = e.touches[0]
-      currentXRef.current = touch.clientX
-      const deltaX = currentXRef.current - startXRef.current
-      if (deltaX < 0) {
-        setSwipeProgress(0)
-        return
-      }
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const progress = Math.min(deltaX / buttonWidth, 1)
-      setSwipeProgress(progress)
-    }
-
-    const handleTouchEnd = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
-      const deltaX = currentXRef.current - startXRef.current
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const threshold = buttonWidth * 0.6
-      if (deltaX >= threshold) {
-        onReachedDrop(order)
-      }
-      setIsSwiping(false)
-      setSwipeProgress(0)
-      startXRef.current = 0
-      currentXRef.current = 0
-    }
-
-    return (
-      <div 
-        ref={buttonRef}
-        className="relative w-full h-14 rounded-xl overflow-hidden bg-blue-600"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ touchAction: 'pan-y' }}
-      >
-        {swipeProgress > 0 && (
-          <motion.div
-            className="absolute inset-0 bg-blue-700"
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: swipeProgress }}
-            transition={{ duration: 0 }}
-            style={{ transformOrigin: 'left' }}
-          />
-        )}
-        <div className="relative z-10 h-full flex items-center justify-center px-6">
-          <div className="flex items-center gap-3 text-white font-semibold">
-            <span className="text-base">
-              {swipeProgress > 0.5 ? 'Release to Confirm' : 'Swipe to Confirm Reached Drop'}
-            </span>
-            {swipeProgress > 0.5 && <Check className="w-5 h-5" />}
-            {swipeProgress <= 0.5 && <ChevronRight className="w-5 h-5" />}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Order Delivered Button Component (with COD info)
+  // 5. Swipeable Order Delivered Button
   const OrderDeliveredButton = ({ order, onDelivered }) => {
-    const [swipeProgress, setSwipeProgress] = useState(0)
-    const [isSwiping, setIsSwiping] = useState(false)
-    const buttonRef = useRef(null)
-    const startXRef = useRef(0)
-    const currentXRef = useRef(0)
-    
     const paymentMethod = (order.payment?.method || '').toLowerCase()
     const isCOD = paymentMethod === 'cash' || paymentMethod === 'cod'
     const total = order.pricing?.total || 0
-
-    const handleTouchStart = (e) => {
-      e.stopPropagation()
-      const touch = e.touches[0]
-      startXRef.current = touch.clientX
-      currentXRef.current = touch.clientX
-      setIsSwiping(true)
-      setSwipeProgress(0)
-    }
-
-    const handleTouchMove = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
-      const touch = e.touches[0]
-      currentXRef.current = touch.clientX
-      const deltaX = currentXRef.current - startXRef.current
-      if (deltaX < 0) {
-        setSwipeProgress(0)
-        return
-      }
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const progress = Math.min(deltaX / buttonWidth, 1)
-      setSwipeProgress(progress)
-    }
-
-    const handleTouchEnd = (e) => {
-      e.stopPropagation()
-      if (!isSwiping) return
-      const deltaX = currentXRef.current - startXRef.current
-      const buttonWidth = buttonRef.current?.offsetWidth || 200
-      const threshold = buttonWidth * 0.6
-      if (deltaX >= threshold) {
-        onDelivered(order)
-      }
-      setIsSwiping(false)
-      setSwipeProgress(0)
-      startXRef.current = 0
-      currentXRef.current = 0
-    }
 
     return (
       <div className="space-y-3">
@@ -1222,33 +989,13 @@ export default function MyOrders() {
             </div>
           </div>
         )}
-        <div 
-          ref={buttonRef}
-          className="relative w-full h-14 rounded-xl overflow-hidden bg-purple-600"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          style={{ touchAction: 'pan-y' }}
-        >
-          {swipeProgress > 0 && (
-            <motion.div
-              className="absolute inset-0 bg-purple-700"
-              initial={{ scaleX: 0 }}
-              animate={{ scaleX: swipeProgress }}
-              transition={{ duration: 0 }}
-              style={{ transformOrigin: 'left' }}
-            />
-          )}
-          <div className="relative z-10 h-full flex items-center justify-center px-6">
-            <div className="flex items-center gap-3 text-white font-semibold">
-              <span className="text-base">
-                {swipeProgress > 0.5 ? 'Release to Confirm' : 'Swipe to Confirm Delivered'}
-              </span>
-              {swipeProgress > 0.5 && <Check className="w-5 h-5" />}
-              {swipeProgress <= 0.5 && <ChevronRight className="w-5 h-5" />}
-            </div>
-          </div>
-        </div>
+        <SwipeButton
+          label="Mark as Delivered"
+          onComplete={() => onDelivered(order)}
+          color="bg-green-600"
+          progressColor="bg-green-500"
+          icon={<CheckCircle2 className="w-5 h-5 text-white" />}
+        />
       </div>
     )
   }
@@ -1259,9 +1006,9 @@ export default function MyOrders() {
       <button
         onClick={async () => {
           toast.success(`Order completed! Earnings: ₹${earnings.toFixed(2)}`)
-          const fetchResponse = await deliveryAPI.getOrders({ 
-            includeDelivered: false, 
-            limit: 100 
+          const fetchResponse = await deliveryAPI.getOrders({
+            includeDelivered: false,
+            limit: 100
           })
           if (fetchResponse?.data?.success && fetchResponse?.data?.data?.orders) {
             setOrders(fetchResponse.data.data.orders || [])
@@ -1293,11 +1040,10 @@ export default function MyOrders() {
         <div className="flex">
           <button
             onClick={() => setActiveTab("pending")}
-            className={`flex-1 py-3 px-4 text-center font-medium transition-colors relative ${
-              activeTab === "pending"
-                ? "text-orange-600"
-                : "text-gray-600"
-            }`}
+            className={`flex-1 py-3 px-4 text-center font-medium transition-colors relative ${activeTab === "pending"
+              ? "text-orange-600"
+              : "text-gray-600"
+              }`}
           >
             Pending
             {activeTab === "pending" && (
@@ -1311,11 +1057,10 @@ export default function MyOrders() {
           </button>
           <button
             onClick={() => setActiveTab("delivered")}
-            className={`flex-1 py-3 px-4 text-center font-medium transition-colors relative ${
-              activeTab === "delivered"
-                ? "text-green-600"
-                : "text-gray-600"
-            }`}
+            className={`flex-1 py-3 px-4 text-center font-medium transition-colors relative ${activeTab === "delivered"
+              ? "text-green-600"
+              : "text-gray-600"
+              }`}
           >
             Delivered
             {activeTab === "delivered" && (
@@ -1324,11 +1069,10 @@ export default function MyOrders() {
           </button>
           <button
             onClick={() => setActiveTab("cancelled")}
-            className={`flex-1 py-3 px-4 text-center font-medium transition-colors relative ${
-              activeTab === "cancelled"
-                ? "text-red-600"
-                : "text-gray-600"
-            }`}
+            className={`flex-1 py-3 px-4 text-center font-medium transition-colors relative ${activeTab === "cancelled"
+              ? "text-red-600"
+              : "text-gray-600"
+              }`}
           >
             Cancelled
             {activeTab === "cancelled" && (
@@ -1342,9 +1086,9 @@ export default function MyOrders() {
       <div className="p-4 bg-white">
         <div className="flex items-center bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
           <Search className="w-5 h-5 text-orange-500" />
-          <input 
-            type="text" 
-            placeholder="Search by order ID, restaurant or dish" 
+          <input
+            type="text"
+            placeholder="Search by order ID, restaurant or dish"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 ml-3 outline-none text-gray-600 placeholder-gray-400"
@@ -1359,7 +1103,7 @@ export default function MyOrders() {
           )}
         </div>
       </div>
-          
+
       {/* Orders List */}
       <div className="px-4 py-2">
         {loading ? (
@@ -1374,11 +1118,11 @@ export default function MyOrders() {
               {searchQuery ? "No orders found" : `No ${activeTab} orders`}
             </h3>
             <p className="text-gray-600 text-sm text-center">
-              {searchQuery 
+              {searchQuery
                 ? "Try searching with different keywords"
                 : activeTab === "pending"
-                ? "You don't have any active assigned orders"
-                : `You don't have any ${activeTab} orders yet`}
+                  ? "You don't have any active assigned orders"
+                  : `You don't have any ${activeTab} orders yet`}
             </p>
           </div>
         ) : (
@@ -1398,8 +1142,8 @@ export default function MyOrders() {
               const orderId = order.orderId || order._id || 'N/A'
 
               return (
-                <div 
-                  key={order._id || order.orderId || Math.random()} 
+                <div
+                  key={order._id || order.orderId || Math.random()}
                   className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
                 >
                   {/* Active Order Badge */}
@@ -1417,8 +1161,8 @@ export default function MyOrders() {
                     <div className="flex gap-3 flex-1">
                       {/* Restaurant/Food Image */}
                       <div className="w-14 h-14 rounded-lg bg-gray-200 overflow-hidden shrink-0">
-                        <img 
-                          src={restaurantImage} 
+                        <img
+                          src={restaurantImage}
                           alt={restaurantName}
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -1456,7 +1200,7 @@ export default function MyOrders() {
                       </div>
                     </div>
 
-                    <button 
+                    <button
                       className="p-1 hover:bg-gray-100 rounded-full shrink-0"
                       onClick={(e) => {
                         e.stopPropagation()
@@ -1495,11 +1239,10 @@ export default function MyOrders() {
                     <div>
                       <p className="text-xs text-gray-400">Order placed on {orderDate}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs font-medium ${
-                          isDelivered ? 'text-green-600' :
+                        <span className={`text-xs font-medium ${isDelivered ? 'text-green-600' :
                           isCancelled ? 'text-red-600' :
-                          'text-orange-600'
-                        }`}>
+                            'text-orange-600'
+                          }`}>
                           {orderStatus}
                         </span>
                         {isActive && activeTab === "pending" && (
@@ -1524,45 +1267,67 @@ export default function MyOrders() {
                     {isActive && activeTab === "pending" ? (
                       // Phase 1: Order not accepted yet - show Accept/Reject button
                       !isAcceptedByDeliveryBoy(order) ? (
-                        <SwipeableActionButton
+                        <ActionButton
                           order={order}
                           onAccept={handleAcceptOrder}
                           onReject={handleRejectOrder}
                         />
                       ) : // Phase 2: Accepted but not reached pickup - show Reached Pickup button
-                      !isReachedPickup(order) ? (
-                        <SwipeableReachedPickupButton
-                          order={order}
-                          onReachedPickup={handleReachedPickup}
-                        />
-                      ) : // Phase 3: Reached pickup but not picked up - show Order Pickup with bill upload
-                      !isOrderPickedUp(order) ? (
-                        <OrderPickupButton
-                          order={order}
-                          onPickup={handleOrderPickup}
-                          billImageUrl={billImages[order.orderId || order._id]}
-                          isUploading={uploadingBills[order.orderId || order._id]}
-                          onCameraClick={handleBillImageCapture}
-                        />
-                      ) : // Phase 4: Picked up but not reached drop - show Reached Drop button
-                      !isReachedDrop(order) ? (
-                        <ReachedDropButton
-                          order={order}
-                          onReachedDrop={handleReachedDrop}
-                        />
-                      ) : // Phase 5: Reached drop but not delivered - show Order Delivered with COD
-                      !isOrderDelivered(order) ? (
-                        <OrderDeliveredButton
-                          order={order}
-                          onDelivered={handleOrderDelivered}
-                        />
-                      ) : // Phase 6: Delivered - show Complete button with earnings
-                      (
-                        <CompleteButton
-                          order={order}
-                          earnings={order.pricing?.deliveryFee || order.estimatedEarnings || 0}
-                        />
-                      )
+                        !isReachedPickup(order) ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <ReachedPickupButton
+                                order={order}
+                                onReachedPickup={handleReachedPickup}
+                              />
+                            </div>
+                            <button
+                              onClick={(e) => handleRestaurantLocationClick(order, e)}
+                              className="w-14 h-14 bg-green-50 rounded-xl flex items-center justify-center text-green-600 shadow-sm border border-green-100"
+                              title="View restaurant location"
+                            >
+                              <MapPin className="w-6 h-6" />
+                            </button>
+                          </div>
+                        ) : // Phase 3: Reached pickup but not picked up - show Order Pickup with bill upload
+                          !isOrderPickedUp(order) ? (
+                            <OrderPickupButton
+                              order={order}
+                              onPickup={handleOrderPickup}
+                              billImageUrl={billImages[order.orderId || order._id]}
+                              isUploading={uploadingBills[order.orderId || order._id]}
+                              onCameraClick={handleBillImageCapture}
+                            />
+                          ) : // Phase 4: Picked up but not reached drop - show Reached Drop button with Location Icon
+                            !isReachedDrop(order) ? (
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                  <ReachedDropButton
+                                    order={order}
+                                    onReachedDrop={handleReachedDrop}
+                                  />
+                                </div>
+                                <button
+                                  onClick={(e) => handleCustomerLocationClick(order, e)}
+                                  className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 shadow-sm border border-blue-100"
+                                  title="View customer location"
+                                >
+                                  <MapPin className="w-6 h-6" />
+                                </button>
+                              </div>
+                            ) : // Phase 5: Reached drop but not delivered - show Order Delivered
+                              !isOrderDelivered(order) ? (
+                                <OrderDeliveredButton
+                                  order={order}
+                                  onDelivered={handleOrderDelivered}
+                                />
+                              ) : // Phase 6: Delivered - show Complete button with earnings
+                                (
+                                  <CompleteButton
+                                    order={order}
+                                    earnings={order.pricing?.deliveryFee || order.estimatedEarnings || 0}
+                                  />
+                                )
                     ) : paymentFailed ? (
                       <div className="flex items-center gap-2">
                         <div className="bg-red-100 p-1 rounded-full">
@@ -1604,6 +1369,87 @@ export default function MyOrders() {
           </div>
         )}
       </div>
+
+      {/* Rating & Review Modal */}
+      <AnimatePresence>
+        {showRatingPopup && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60"
+              onClick={() => !submittingRating && setShowRatingPopup(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl"
+            >
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Rate Your Delivery</h2>
+              <p className="text-gray-500 text-sm mb-6">How was your experience with this delivery?</p>
+
+              {/* Star Rating */}
+              <div className="flex justify-center gap-3 mb-8">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setRatingValue(star)}
+                    className="p-1 transition-transform active:scale-90"
+                  >
+                    <Star
+                      className={`w-10 h-10 ${ratingValue >= star ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                        }`}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              {/* Review Text */}
+              <textarea
+                placeholder="Write a brief review (optional)"
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                className="w-full h-24 p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-500 transition-colors resize-none mb-6"
+              />
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  disabled={submittingRating}
+                  onClick={() => setShowRatingPopup(false)}
+                  className="flex-1 py-3.5 bg-gray-100 text-gray-700 font-bold rounded-xl active:scale-95 transition-all"
+                >
+                  Skip
+                </button>
+                <button
+                  disabled={submittingRating}
+                  onClick={handleRatingSubmit}
+                  className="flex-1 py-3.5 bg-green-600 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {submittingRating ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Review'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Input File Ref for Bill (Hidden) */}
+      <input
+        ref={fileInputRefs}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => {
+          if (activeBillUploadOrder) {
+            handleBillImageSelect(activeBillUploadOrder, e)
+            setActiveBillUploadOrder(null)
+          }
+        }}
+        className="hidden"
+      />
     </div>
   )
 }

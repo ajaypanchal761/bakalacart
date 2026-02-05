@@ -10,8 +10,15 @@ import AuditLog from '../../admin/models/AuditLog.js';
  */
 export const holdEscrow = async (orderId, userId, amount) => {
   try {
-    // Get or create settlement
-    let settlement = await OrderSettlement.findOne({ orderId });
+    // Safe lookup for orderId (could be ObjectId or string)
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && String(orderId).length === 24;
+    const settlementQuery = isObjectId ? { $or: [{ orderId: orderId }, { orderNumber: orderId }] } : { orderNumber: orderId };
+
+    // Actually, orderId in settlement is always ObjectId, but let's be safe
+    let settlement = await OrderSettlement.findOne({
+      $or: isObjectId ? [{ orderId: orderId }] : [{ orderNumber: orderId }]
+    });
+
     if (!settlement) {
       settlement = await OrderSettlement.findOrCreateByOrderId(orderId);
     }
@@ -53,7 +60,10 @@ export const holdEscrow = async (orderId, userId, amount) => {
  */
 export const releaseEscrow = async (orderId) => {
   try {
-    const settlement = await OrderSettlement.findOne({ orderId });
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && String(orderId).length === 24;
+    const settlement = await OrderSettlement.findOne({
+      $or: isObjectId ? [{ orderId: orderId }] : [{ orderNumber: orderId }]
+    });
     if (!settlement) {
       throw new Error('Settlement not found');
     }
@@ -151,13 +161,13 @@ const creditRestaurantWallet = async (restaurantId, orderId, netAmount, orderNum
   try {
     const RestaurantWallet = (await import('../../restaurant/models/RestaurantWallet.js')).default;
     const wallet = await RestaurantWallet.findOrCreateByRestaurantId(restaurantId);
-    
+
     // Create description with breakdown
     let description = `Payment for order ${orderNumber}`;
     if (foodPrice && commission) {
       description = `Payment for order ${orderNumber} (Order: ₹${foodPrice}, Commission: ₹${commission}, Net: ₹${netAmount})`;
     }
-    
+
     wallet.addTransaction({
       amount: netAmount, // Credit net amount (₹170)
       type: 'payment',
@@ -165,7 +175,7 @@ const creditRestaurantWallet = async (restaurantId, orderId, netAmount, orderNum
       description: description,
       orderId: orderId
     });
-    
+
     await wallet.save();
 
     // Create audit log
@@ -200,7 +210,7 @@ const creditDeliveryWallet = async (deliveryId, orderId, amount, orderNumber) =>
   try {
     const DeliveryWallet = (await import('../../delivery/models/DeliveryWallet.js')).default;
     const wallet = await DeliveryWallet.findOrCreateByDeliveryId(deliveryId);
-    
+
     wallet.addTransaction({
       amount: amount,
       type: 'payment',
@@ -209,7 +219,7 @@ const creditDeliveryWallet = async (deliveryId, orderId, amount, orderNumber) =>
       orderId: orderId,
       paymentCollected: false // Will be updated when COD is collected
     });
-    
+
     await wallet.save();
 
     // Create audit log

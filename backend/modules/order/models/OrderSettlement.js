@@ -35,7 +35,7 @@ const orderSettlementSchema = new mongoose.Schema({
     sparse: true,
     index: true
   },
-  
+
   // User Payment Breakdown
   userPayment: {
     subtotal: { type: Number, required: true, min: 0 },
@@ -46,7 +46,7 @@ const orderSettlementSchema = new mongoose.Schema({
     packagingFee: { type: Number, default: 0, min: 0 },
     total: { type: Number, required: true, min: 0 }
   },
-  
+
   // Restaurant Earnings
   restaurantEarning: {
     foodPrice: { type: Number, required: true, min: 0 },
@@ -60,7 +60,7 @@ const orderSettlementSchema = new mongoose.Schema({
     },
     creditedAt: Date
   },
-  
+
   // Delivery Partner Earnings
   deliveryPartnerEarning: {
     basePayout: { type: Number, default: 0, min: 0 },
@@ -77,7 +77,7 @@ const orderSettlementSchema = new mongoose.Schema({
     },
     creditedAt: Date
   },
-  
+
   // Admin/Platform Earnings
   adminEarning: {
     commission: { type: Number, required: true, min: 0 },
@@ -93,7 +93,7 @@ const orderSettlementSchema = new mongoose.Schema({
     },
     creditedAt: Date
   },
-  
+
   // Escrow Status
   escrowStatus: {
     type: String,
@@ -107,7 +107,7 @@ const orderSettlementSchema = new mongoose.Schema({
   },
   escrowHeldAt: Date,
   escrowReleasedAt: Date,
-  
+
   // Settlement Status
   settlementStatus: {
     type: String,
@@ -126,7 +126,7 @@ const orderSettlementSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  
+
   // Cancellation Details
   cancellationDetails: {
     cancelled: { type: Boolean, default: false },
@@ -149,13 +149,13 @@ const orderSettlementSchema = new mongoose.Schema({
     refundProcessedAt: Date,
     refundFailureReason: { type: String, sparse: true }
   },
-  
+
   // Audit Trail
   calculationSnapshot: {
     type: mongoose.Schema.Types.Mixed,
     comment: 'Snapshot of calculation at time of order'
   },
-  
+
   // Metadata
   metadata: {
     type: Map,
@@ -175,15 +175,21 @@ orderSettlementSchema.index({ 'deliveryPartnerEarning.status': 1 });
 orderSettlementSchema.index({ createdAt: -1 });
 
 // Static method to find or create settlement for an order
-orderSettlementSchema.statics.findOrCreateByOrderId = async function(orderId) {
-  let settlement = await this.findOne({ orderId });
-  
+orderSettlementSchema.statics.findOrCreateByOrderId = async function (orderId) {
+  const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && String(orderId).length === 24;
+  let settlement = await this.findOne(isObjectId ? { orderId } : { orderNumber: orderId });
+
   if (!settlement) {
-    const order = await mongoose.model('Order').findById(orderId);
+    // Safe lookup for order by either _id or orderId string
+    const isObjectId = mongoose.Types.ObjectId.isValid(orderId) && String(orderId).length === 24;
+    const order = await mongoose.model('Order').findOne({
+      $or: isObjectId ? [{ _id: orderId }, { orderId: orderId }] : [{ orderId: orderId }]
+    });
+
     if (!order) {
       throw new Error('Order not found');
     }
-    
+
     settlement = await this.create({
       orderId,
       orderNumber: order.orderId,
@@ -192,7 +198,7 @@ orderSettlementSchema.statics.findOrCreateByOrderId = async function(orderId) {
       restaurantName: order.restaurantName
     });
   }
-  
+
   return settlement;
 };
 

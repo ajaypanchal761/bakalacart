@@ -41,6 +41,7 @@ import TimeOnOrders from "../pages/TimeOnOrders"
 import PocketBalancePage from "../pages/PocketBalance"
 import CustomerTipsBalancePage from "../pages/CustomerTips"
 import PocketDetails from "../pages/PocketDetails"
+import OrderCompleted from "../pages/OrderCompleted"
 
 export default function DeliveryRouter() {
   return (
@@ -423,6 +424,14 @@ export default function DeliveryRouter() {
           </ProtectedRoute>
         }
         path="/help/language"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <OrderCompleted />
+          </ProtectedRoute>
+        }
+        path="/order-completed"
       />
     </Routes>
   )
