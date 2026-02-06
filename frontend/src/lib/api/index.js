@@ -993,6 +993,35 @@ export const adminAPI = {
     return apiClient.delete(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_BY_ID.replace(':id', id));
   },
 
+  // Delivery Boy Commission Management
+  getDeliveryBoyCommissions: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION, { params });
+  },
+
+  getDeliveryBoyCommissionById: (id) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_BY_ID.replace(':id', id));
+  },
+
+  createDeliveryBoyCommission: (data) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION, data);
+  },
+
+  updateDeliveryBoyCommission: (id, data) => {
+    return apiClient.put(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_BY_ID.replace(':id', id), data);
+  },
+
+  deleteDeliveryBoyCommission: (id) => {
+    return apiClient.delete(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_BY_ID.replace(':id', id));
+  },
+
+  toggleDeliveryBoyCommissionStatus: (id) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_STATUS.replace(':id', id));
+  },
+
+  calculateDeliveryBoyCommission: (distance) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.DELIVERY_BOY_COMMISSION_CALCULATE, { distance });
+  },
+
   toggleRestaurantCommissionStatus: (id) => {
     return apiClient.patch(API_ENDPOINTS.ADMIN.RESTAURANT_COMMISSION_STATUS.replace(':id', id));
   },

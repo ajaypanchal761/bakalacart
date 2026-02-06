@@ -1898,17 +1898,37 @@ export const getOrdersForAssignment = asyncHandler(async (req, res) => {
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    // Get total count
+    const total = await Order.countDocuments(query);
+
     // Fetch orders with population
     const orders = await Order.find(query)
       .populate('userId', 'name email phone')
-      .populate('restaurantId', 'name slug')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip(skip)
       .lean();
 
-    // Get total count
-    const total = await Order.countDocuments(query);
+    // Get unique restaurant IDs
+    const restaurantIds = [...new Set(orders.map(o => o.restaurantId).filter(Boolean))];
+    
+    // Fetch restaurant data with location
+    const Restaurant = (await import('../../restaurant/models/Restaurant.js')).default;
+    const restaurants = await Restaurant.find({
+      $or: [
+        { _id: { $in: restaurantIds } },
+        { restaurantId: { $in: restaurantIds } }
+      ]
+    }).select('_id restaurantId name slug location').lean();
+    
+    // Create a map for quick lookup
+    const restaurantMap = new Map();
+    restaurants.forEach(rest => {
+      const id = rest._id?.toString() || rest.restaurantId;
+      restaurantMap.set(id, rest);
+      if (rest.restaurantId) restaurantMap.set(rest.restaurantId, rest);
+      if (rest._id) restaurantMap.set(rest._id.toString(), rest);
+    });
 
     // Transform orders
     const transformedOrders = orders.map((order, index) => {
@@ -1935,6 +1955,13 @@ export const getOrdersForAssignment = asyncHandler(async (req, res) => {
       // If delivery boy hasn't accepted and it's been assigned, allow reassignment
       const canReassign = isDeliveryBoyPending;
 
+      // Get restaurant zone and location info
+      const restaurantZoneName = order.assignmentInfo?.zoneName || null;
+      
+      // Get restaurant data from map
+      const restaurantData = restaurantMap.get(order.restaurantId) || null;
+      const restaurantLocation = restaurantData?.location || null;
+
       return {
         id: order._id.toString(),
         orderId: order.orderId,
@@ -1946,6 +1973,8 @@ export const getOrdersForAssignment = asyncHandler(async (req, res) => {
         customerEmail: order.userId?.email || '',
         restaurant: order.restaurantName || order.restaurantId?.name || 'Unknown Restaurant',
         restaurantId: order.restaurantId?._id?.toString() || order.restaurantId?.toString() || order.restaurantId || '',
+        restaurantZoneName: restaurantZoneName,
+        restaurantLocation: restaurantLocation,
         totalAmount: order.pricing?.total || 0,
         orderStatus: order.status,
         restaurantAccepted: isRestaurantAccepted,

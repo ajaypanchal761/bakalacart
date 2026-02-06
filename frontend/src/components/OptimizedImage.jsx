@@ -240,7 +240,6 @@ const OptimizedImage = ({
     // If the image failed to load and it's a Cloudinary URL that was optimized,
     // try loading the original URL without optimizations
     if (src && isCloudinary(src) && e.target.src !== src && !hasError) {
-      console.log('🔄 Retrying with original Cloudinary URL:', src)
       // Try original URL without optimizations
       const originalUrl = src
       e.target.src = originalUrl
@@ -250,7 +249,7 @@ const OptimizedImage = ({
     }
     
     // If we've already tried the original URL or it's not Cloudinary, show error
-    console.error('❌ Image failed to load after retry:', e.target.src)
+    // Silently handle error - component already shows fallback UI
     setHasError(true)
     if (onError) onError(e)
   }

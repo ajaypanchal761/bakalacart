@@ -5,7 +5,6 @@ import { motion } from "framer-motion"
 import AnimatedPage from "../../components/AnimatedPage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import appzetoFoodLogo from "@/assets/appzetologo.png"
 import api from "@/lib/api"
 import { API_ENDPOINTS } from "@/lib/api/config"
 
@@ -92,11 +91,20 @@ export default function About() {
                 <div className="relative">
                   <div className="absolute inset-0 bg-green-400 rounded-full blur-2xl opacity-30 animate-pulse" />
                   <div className="relative bg-white dark:bg-gray-800 rounded-full p-4 md:p-6 shadow-xl">
-                    <img
-                      src={aboutData.logo && aboutData.logo.trim() ? aboutData.logo : appzetoFoodLogo}
-                      alt={`${aboutData.appName} Logo`}
-                      className="h-16 w-16 md:h-20 md:w-20 object-contain rounded-full"
-                    />
+                    {aboutData.logo && aboutData.logo.trim() ? (
+                      <img
+                        src={aboutData.logo}
+                        alt={`${aboutData.appName} Logo`}
+                        className="h-16 w-16 md:h-20 md:w-20 object-contain rounded-full"
+                        onError={(e) => {
+                          e.target.style.display = 'none'
+                        }}
+                      />
+                    ) : (
+                      <div className="h-16 w-16 md:h-20 md:w-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                        {aboutData.appName.charAt(0)}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>

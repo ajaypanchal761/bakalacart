@@ -12,6 +12,7 @@ import PickupDirectionsPage from "../pages/PickupDirectionsPage"
 import ProfilePage from "../pages/ProfilePage"
 import ProfileDetails from "../pages/ProfileDetails"
 import AcceptedOrderDetails from "../pages/AcceptedOrderDetails"
+import OrderDetailsPage from "../pages/OrderDetailsPage"
 import MyAccount from "../pages/MyAccount"
 import TransactionHistory from "../pages/TransactionHistory"
 import EditProfile from "../pages/EditProfile"
@@ -174,6 +175,16 @@ export default function DeliveryRouter() {
           </ProtectedRoute>
         }
         path="/order/:orderId"
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <DeliveryLayout>
+              <OrderDetailsPage />
+            </DeliveryLayout>
+          </ProtectedRoute>
+        }
+        path="/order-details/:orderId"
       />
       <Route
         element={

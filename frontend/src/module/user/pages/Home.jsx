@@ -33,7 +33,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useLocation } from "../hooks/useLocation"
 import { useZone } from "../hooks/useZone"
-import appzetoFoodLogo from "@/assets/appzetologo.png"
 import offerImage from "@/assets/offerimage.png"
 import api, { restaurantAPI } from "@/lib/api"
 import { API_BASE_URL } from "@/lib/api/config"
@@ -65,17 +64,72 @@ function RestaurantImageCarousel({ images, restaurantName, restaurantId, priorit
   const touchEndX = useRef(0)
   const isSwiping = useRef(false)
 
-  if (!images || images.length === 0) {
+  // SUPER SIMPLE Normalize images array - handle both string URLs and objects with url property
+  const normalizeImages = (imgArray) => {
+    if (!imgArray || !Array.isArray(imgArray)) return []
+    
+    const urls = []
+    imgArray.forEach(img => {
+      // Handle string URLs directly
+      if (typeof img === 'string' && img.trim() !== '') {
+        urls.push(img.trim())
+        return
+      }
+      // Handle objects with url property
+      if (img && typeof img === 'object') {
+        if (img.url && typeof img.url === 'string' && img.url.trim() !== '') {
+          urls.push(img.url.trim())
+          return
+        }
+        if (img.secure_url && typeof img.secure_url === 'string' && img.secure_url.trim() !== '') {
+          urls.push(img.secure_url.trim())
+          return
+        }
+      }
+    })
+    
+    return urls.filter(url => url && url !== 'null' && url !== 'undefined')
+  }
+
+  // Filter out invalid/empty image URLs
+  const validImages = normalizeImages(images)
+
+  // Use fallback if no valid images - always ensure we have at least one image
+  const displayImages = validImages.length > 0 
+    ? validImages 
+    : ["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"]
+  
+  // Debug log for all restaurants (only first 3 to avoid spam)
+  if (restaurantId && (restaurantName === "Sagar restaurant" || restaurantName?.includes("Sagar"))) {
+    console.log(`🔍🔍🔍 RestaurantImageCarousel Debug for "${restaurantName}":`, {
+      restaurantName,
+      restaurantId,
+      rawImages: images,
+      rawImagesType: typeof images,
+      rawImagesIsArray: Array.isArray(images),
+      rawImagesLength: images?.length,
+      firstRawImage: images?.[0],
+      firstRawImageType: typeof images?.[0],
+      firstRawImageUrl: images?.[0]?.url || images?.[0],
+      normalizedImages: validImages,
+      normalizedImagesLength: validImages.length,
+      normalizedFirstImage: validImages[0],
+      displayImages: displayImages,
+      displayImagesLength: displayImages.length,
+      displayFirstImage: displayImages[0],
+      currentIndex: currentIndex,
+      currentImageSrc: displayImages[currentIndex]
+    })
+  }
+
+  if (displayImages.length === 0 || !displayImages[0]) {
     return (
       <div className="relative h-48 sm:h-56 md:h-60 lg:h-64 xl:h-72 w-full overflow-hidden rounded-t-md flex-shrink-0 bg-gray-200">
-        <OptimizedImage
+        <img
           src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"
           alt={restaurantName}
-          className="w-full h-full"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          objectFit="cover"
-          placeholder="blur"
-          priority={priority}
+          className="w-full h-full object-cover"
+          loading={priority ? 'eager' : 'lazy'}
         />
       </div>
     )
@@ -107,10 +161,10 @@ function RestaurantImageCarousel({ images, restaurantName, restaurantId, priorit
     if (Math.abs(diff) > minSwipeDistance) {
       if (diff > 0) {
         // Swipe left - next image
-        setCurrentIndex((prev) => (prev + 1) % images.length)
+        setCurrentIndex((prev) => (prev + 1) % displayImages.length)
       } else {
         // Swipe right - previous image
-        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
+        setCurrentIndex((prev) => (prev - 1 + displayImages.length) % displayImages.length)
       }
     }
     
@@ -144,23 +198,46 @@ function RestaurantImageCarousel({ images, restaurantName, restaurantId, priorit
             }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <OptimizedImage
-              src={images[currentIndex]}
-              alt={`${restaurantName} - Image ${currentIndex + 1}`}
-              className="w-full h-full"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              objectFit="cover"
-              placeholder="blur"
-              priority={priority && currentIndex === 0}
-            />
+            {displayImages[currentIndex] ? (
+              <>
+                {/* Use regular img tag directly for Cloudinary URLs - OptimizedImage is causing issues */}
+                <img
+                  src={displayImages[currentIndex]}
+                  alt={`${restaurantName} - Image ${currentIndex + 1}`}
+                  className="w-full h-full object-cover"
+                  loading={priority && currentIndex === 0 ? 'eager' : 'lazy'}
+                  onError={(e) => {
+                    console.error(`❌ Image failed to load for "${restaurantName}":`, displayImages[currentIndex])
+                    e.target.style.display = 'none'
+                    const placeholder = e.target.parentElement?.querySelector('.image-placeholder')
+                    if (placeholder) {
+                      placeholder.style.display = 'flex'
+                    }
+                  }}
+                  onLoad={() => {
+                    if (restaurantName === "Sagar Restaurant" || restaurantName?.includes("Sagar")) {
+                      console.log(`✅ Image loaded successfully for "${restaurantName}":`, displayImages[currentIndex])
+                    }
+                  }}
+                />
+                {/* Placeholder if image fails */}
+                <div className="image-placeholder absolute inset-0 hidden items-center justify-center bg-gray-200">
+                  <span className="text-4xl">🍽️</span>
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                <span className="text-4xl">🍽️</span>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       </AnimatePresence>
 
       {/* Image Indicators - only show if more than 1 image */}
-      {images.length > 1 && (
+      {displayImages.length > 1 && (
         <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1.5 z-10">
-          {images.map((_, index) => (
+          {displayImages.map((_, index) => (
             <button
               key={index}
               onClick={(e) => {
@@ -658,27 +735,11 @@ export default function Home() {
   }, [isFilterOpen])
 
   // Fetch restaurants from API with filters
-  const fetchRestaurants = useCallback(async (filters = {}) => {
+  const fetchRestaurants = useCallback(async (filters = {}, useCache = true) => {
     try {
       setLoadingRestaurants(true)
       
-      // First, test backend connection
-      try {
-        // Use API_BASE_URL from config (supports both dev and production)
-        const backendUrl = API_BASE_URL.replace('/api', '')
-        const healthCheck = await fetch(`${backendUrl}/health`)
-        if (!healthCheck.ok) {
-          throw new Error(`Backend health check failed: ${healthCheck.status}`)
-        }
-        console.log('✅ Backend connection successful')
-      } catch (healthError) {
-        // Backend connection error - handled silently, toast notifications shown via axios interceptor
-        setRestaurantsData([])
-        setLoadingRestaurants(false)
-        return
-      }
-      
-      // Build query parameters from filters
+      // Build query parameters from filters first (needed for cache key)
       const params = {}
       
       // Sort by
@@ -747,6 +808,78 @@ export default function Home() {
         const restaurantsArray = response.data.data.restaurants
         console.log(`Fetched ${restaurantsArray.length} restaurants from API`)
         
+        // Cache restaurant data in localStorage for faster loading
+        try {
+          const cacheKey = `restaurants_cache_${JSON.stringify(params)}`
+          const cacheData = {
+            restaurants: restaurantsArray,
+            timestamp: Date.now(),
+            filters: params
+          }
+          const cacheString = JSON.stringify(cacheData)
+          
+          // Check localStorage quota and verify storage
+          try {
+            localStorage.setItem(cacheKey, cacheString)
+            const stored = localStorage.getItem(cacheKey)
+            if (stored === cacheString) {
+              const cacheSize = new Blob([cacheString]).size
+              console.log('✅ Restaurant data cached successfully', {
+                cacheKey: cacheKey.substring(0, 50) + '...',
+                restaurantsCount: restaurantsArray.length,
+                cacheSizeKB: (cacheSize / 1024).toFixed(2) + ' KB'
+              })
+            } else {
+              console.warn('⚠️ Cache verification failed - data not stored correctly')
+            }
+          } catch (quotaError) {
+            if (quotaError.name === 'QuotaExceededError') {
+              console.warn('⚠️ localStorage quota exceeded, clearing old cache entries')
+              // Clear old cache entries
+              try {
+                const keys = Object.keys(localStorage).filter(key => key.startsWith('restaurants_cache_'))
+                keys.forEach(key => localStorage.removeItem(key))
+                // Try storing again
+                localStorage.setItem(cacheKey, cacheString)
+                console.log('✅ Cache stored after cleanup')
+              } catch (cleanupError) {
+                console.error('❌ Failed to cleanup cache:', cleanupError)
+              }
+            } else {
+              throw quotaError
+            }
+          }
+        } catch (cacheError) {
+          console.error('❌ Failed to cache restaurant data:', cacheError)
+          console.error('Cache error details:', {
+            name: cacheError.name,
+            message: cacheError.message
+          })
+        }
+        
+        // Debug: Check first restaurant's image data
+        if (restaurantsArray.length > 0) {
+          const firstRestaurant = restaurantsArray[0]
+          console.log('🔍 First restaurant from API (RAW):', {
+            name: firstRestaurant.name,
+            coverImages: firstRestaurant.coverImages,
+            coverImagesType: typeof firstRestaurant.coverImages,
+            coverImagesIsArray: Array.isArray(firstRestaurant.coverImages),
+            menuImages: firstRestaurant.menuImages,
+            menuImagesType: typeof firstRestaurant.menuImages,
+            menuImagesIsArray: Array.isArray(firstRestaurant.menuImages),
+            profileImage: firstRestaurant.profileImage,
+            image: firstRestaurant.image,
+            hasCoverImages: !!firstRestaurant.coverImages,
+            coverImagesLength: firstRestaurant.coverImages?.length || 0,
+            hasMenuImages: !!firstRestaurant.menuImages,
+            menuImagesLength: firstRestaurant.menuImages?.length || 0,
+            // Show first menuImage structure if it exists
+            firstMenuImage: firstRestaurant.menuImages?.[0],
+            firstMenuImageType: typeof firstRestaurant.menuImages?.[0]
+          })
+        }
+        
         if (restaurantsArray.length === 0) {
           console.warn('No restaurants found in API response')
           setRestaurantsData([])
@@ -771,6 +904,20 @@ export default function Home() {
         const userLat = location?.latitude
         const userLng = location?.longitude
 
+        // Cache restaurant data in localStorage for faster loading
+        try {
+          const cacheKey = `restaurants_cache_${JSON.stringify(params)}`
+          const cacheData = {
+            restaurants: restaurantsArray,
+            timestamp: Date.now(),
+            filters: params
+          }
+          localStorage.setItem(cacheKey, JSON.stringify(cacheData))
+          console.log('✅ Restaurant data cached successfully')
+        } catch (cacheError) {
+          console.warn('⚠️ Failed to cache restaurant data:', cacheError)
+        }
+        
         // Transform API data to match expected format
         const transformedRestaurants = restaurantsArray.map((restaurant, index) => {
           // Use restaurant data if available, otherwise use defaults
@@ -803,27 +950,130 @@ export default function Home() {
             ? restaurant.cuisines[0] 
             : "Multi-cuisine"
           
-          // Get cover images (separate from menu images) for carousel
-          const coverImages = restaurant.coverImages && restaurant.coverImages.length > 0
-            ? restaurant.coverImages.map(img => img.url || img)
-            : []
+          // Helper function to extract image URLs from various formats
+          const extractImageUrls = (imageArray) => {
+            if (!imageArray) return []
+            if (!Array.isArray(imageArray)) {
+              // If it's a single object or string, convert to array
+              if (typeof imageArray === 'string' && imageArray.trim() !== '') {
+                return [imageArray.trim()]
+              }
+              if (imageArray && typeof imageArray === 'object') {
+                // Try to find URL in object
+                if (imageArray.url && typeof imageArray.url === 'string' && imageArray.url.trim() !== '') {
+                  return [imageArray.url.trim()]
+                }
+                // Check all properties for URL-like strings
+                for (const key in imageArray) {
+                  if (typeof imageArray[key] === 'string' && imageArray[key].trim() !== '') {
+                    const val = imageArray[key].trim()
+                    if (val.startsWith('http') || val.startsWith('//') || val.startsWith('/') || val.includes('cloudinary')) {
+                      return [val]
+                    }
+                  }
+                }
+              }
+              return []
+            }
+            if (imageArray.length === 0) return []
+            
+            return imageArray.map(img => {
+              // Handle string URLs
+              if (typeof img === 'string' && img.trim() !== '') {
+                const trimmed = img.trim()
+                // Accept any string that looks like a URL or path
+                if (trimmed.startsWith('http') || trimmed.startsWith('//') || trimmed.startsWith('/') || trimmed.includes('cloudinary') || trimmed.includes('.')) {
+                  return trimmed
+                }
+                return null
+              }
+              // Handle objects with url or other properties
+              if (img && typeof img === 'object') {
+                // Check for url property first (most common - Cloudinary format)
+                if (img.url && typeof img.url === 'string' && img.url.trim() !== '') {
+                  return img.url.trim()
+                }
+                // Check for secure_url (Cloudinary format)
+                if (img.secure_url && typeof img.secure_url === 'string' && img.secure_url.trim() !== '') {
+                  return img.secure_url.trim()
+                }
+                // Check all properties for URL-like strings
+                for (const key in img) {
+                  if (typeof img[key] === 'string' && img[key].trim() !== '') {
+                    const val = img[key].trim()
+                    if (val.startsWith('http') || val.startsWith('//') || val.startsWith('/') || val.includes('cloudinary')) {
+                      return val
+                    }
+                  }
+                }
+              }
+              return null
+            }).filter(Boolean) // Remove any null/undefined/empty values
+          }
           
-          // Fallback to menuImages only if coverImages don't exist (for backward compatibility)
-          const fallbackImages = restaurant.menuImages && restaurant.menuImages.length > 0
-            ? restaurant.menuImages.map(img => img.url)
-            : []
+          // SUPER SIMPLE DIRECT EXTRACTION - menuImages are the cover images uploaded by admin
+          let imageUrls = []
           
-          // Use cover images first, then fallback to menu images, then profile image
-          const allImages = coverImages.length > 0 
-            ? coverImages 
-            : (fallbackImages.length > 0
-                ? fallbackImages
-                : (restaurant.profileImage?.url 
-                    ? [restaurant.profileImage.url]
-                    : ["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"]))
+          // First try coverImages
+          if (restaurant.coverImages && Array.isArray(restaurant.coverImages) && restaurant.coverImages.length > 0) {
+            restaurant.coverImages.forEach(img => {
+              if (typeof img === 'string' && img.trim()) imageUrls.push(img.trim())
+              else if (img?.url && typeof img.url === 'string' && img.url.trim()) imageUrls.push(img.url.trim())
+            })
+          }
           
-          // Keep single image for backward compatibility
-          const image = allImages[0]
+          // Then try menuImages (admin uploads cover images as menuImages)
+          if (imageUrls.length === 0 && restaurant.menuImages && Array.isArray(restaurant.menuImages) && restaurant.menuImages.length > 0) {
+            restaurant.menuImages.forEach(img => {
+              if (typeof img === 'string' && img.trim()) {
+                imageUrls.push(img.trim())
+              } else if (img && typeof img === 'object') {
+                if (img.url && typeof img.url === 'string' && img.url.trim()) {
+                  imageUrls.push(img.url.trim())
+                } else if (img.secure_url && typeof img.secure_url === 'string' && img.secure_url.trim()) {
+                  imageUrls.push(img.secure_url.trim())
+                }
+              }
+            })
+          }
+          
+          // Fallback to profileImage
+          if (imageUrls.length === 0 && restaurant.profileImage?.url) {
+            imageUrls.push(restaurant.profileImage.url)
+          }
+          
+          // Fallback to single image field
+          if (imageUrls.length === 0 && restaurant.image && typeof restaurant.image === 'string' && restaurant.image.trim()) {
+            imageUrls.push(restaurant.image.trim())
+          }
+          
+          // Final fallback
+          if (imageUrls.length === 0) {
+            imageUrls = ["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"]
+          }
+          
+          const allImages = imageUrls
+          
+          // Debug logging for Sagar Restaurant
+          if (restaurant.name === "Sagar Restaurant" || restaurant.name?.includes("Sagar")) {
+            console.log(`🔍🔍🔍 SAGAR RESTAURANT FINAL:`, {
+              name: restaurant.name,
+              menuImages: restaurant.menuImages,
+              extractedUrls: imageUrls,
+              allImages: allImages,
+              firstUrl: allImages[0]
+            })
+          }
+          
+          // Keep single image for backward compatibility - ensure it's always a valid URL
+          const image = allImages && allImages.length > 0 && allImages[0] 
+            ? allImages[0] 
+            : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"
+          
+          // Ensure images array always has at least one valid URL
+          const finalImages = allImages && allImages.length > 0 
+            ? allImages 
+            : ["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"]
           
           return {
             id: restaurant.restaurantId || restaurant._id,
@@ -834,7 +1084,7 @@ export default function Home() {
             distance: distance,
             distanceInKm: distanceInKm, // Store numeric distance for sorting
             image: image,
-            images: allImages, // Array of cover images for carousel (separate from menu images)
+            images: finalImages, // Array of cover images for carousel (separate from menu images) - always has at least one image
             priceRange: restaurant.priceRange || "$$", // Use from API or default
             featuredDish: restaurant.featuredDish || (restaurant.cuisines && restaurant.cuisines.length > 0 
               ? `${restaurant.cuisines[0]} Special` 
@@ -1981,12 +2231,36 @@ export default function Home() {
                         }`}>
                           {/* Image Section with Carousel */}
                           <div className="relative">
-                            <RestaurantImageCarousel 
-                              images={restaurant.images || [restaurant.image]}
-                              restaurantName={restaurant.name}
-                              restaurantId={restaurant.id}
-                                priority={index < 3}
-                            />
+                            {(() => {
+                              // restaurant.images already contains extracted URLs from menuImages/coverImages
+                              // The RestaurantImageCarousel component will handle normalization, so just pass the array directly
+                              const imagesToPass = restaurant.images && Array.isArray(restaurant.images) && restaurant.images.length > 0
+                                ? restaurant.images
+                                : (restaurant.image 
+                                    ? [restaurant.image] 
+                                    : ["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop"])
+                              
+                              // Debug logging for Sagar Restaurant
+                              if (restaurant.name === "Sagar Restaurant" || restaurant.name?.includes("Sagar")) {
+                                console.log(`🔍🔍🔍 Passing to Carousel for "${restaurant.name}":`, {
+                                  restaurantImages: restaurant.images,
+                                  restaurantImage: restaurant.image,
+                                  imagesToPass,
+                                  imagesToPassLength: imagesToPass.length,
+                                  firstImage: imagesToPass[0],
+                                  firstImageType: typeof imagesToPass[0]
+                                })
+                              }
+                              
+                              return (
+                                <RestaurantImageCarousel 
+                                  images={imagesToPass}
+                                  restaurantName={restaurant.name}
+                                  restaurantId={restaurant.id}
+                                  priority={index < 3}
+                                />
+                              )
+                            })()}
 
                             {/* Featured Dish Badge - Top Left */}
                             <motion.div 

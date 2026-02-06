@@ -46,20 +46,74 @@ export default function AcceptedOrderDetails() {
         if (response?.data?.success && response?.data?.data) {
           const order = response.data.data.order || response.data.data
           
+          // Format date helper
+          const formatOrderDate = (dateString) => {
+            if (!dateString) return 'N/A'
+            const date = new Date(dateString)
+            const day = date.getDate().toString().padStart(2, '0')
+            const month = date.toLocaleDateString('en-IN', { month: 'short' })
+            const hours = date.getHours()
+            const minutes = date.getMinutes().toString().padStart(2, '0')
+            const ampm = hours >= 12 ? 'PM' : 'AM'
+            const displayHours = hours % 12 || 12
+            return `${day} ${month}, ${displayHours}:${minutes}${ampm}`
+          }
+
+          // Get restaurant address
+          const getRestaurantAddress = () => {
+            const loc = order.restaurantId?.location
+            if (loc?.formattedAddress && loc.formattedAddress.trim() !== '' && loc.formattedAddress.trim() !== 'Select location') {
+              const isCoordinates = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(loc.formattedAddress.trim())
+              if (!isCoordinates) {
+                return loc.formattedAddress.trim()
+              }
+            }
+            if (loc?.addressLine1) {
+              const parts = [loc.addressLine1]
+              if (loc.addressLine2) parts.push(loc.addressLine2)
+              if (loc.area) parts.push(loc.area)
+              if (loc.city) parts.push(loc.city)
+              if (loc.state) parts.push(loc.state)
+              if (loc.pincode) parts.push(loc.pincode)
+              return parts.join(', ')
+            }
+            return order.restaurantId?.address || 'Address not available'
+          }
+
+          // Get customer address
+          const getCustomerAddress = () => {
+            if (order.address?.formattedAddress) {
+              return order.address.formattedAddress
+            }
+            const parts = []
+            if (order.address?.street) parts.push(order.address.street)
+            if (order.address?.area) parts.push(order.address.area)
+            if (order.address?.city) parts.push(order.address.city)
+            if (order.address?.state) parts.push(order.address.state)
+            if (order.address?.pincode || order.address?.zipCode) {
+              parts.push(order.address.pincode || order.address.zipCode)
+            }
+            return parts.length > 0 ? parts.join(', ') : 'Address not available'
+          }
+
           // Transform API order to component format
           const transformedOrder = {
             id: order.orderId || order._id || orderId,
             status: orderStatus,
             deliveryTime: "1 - 5 Min",
+            orderPlacedAt: formatOrderDate(order.createdAt),
+            deliveredAt: order.deliveredAt ? formatOrderDate(order.deliveredAt) : null,
             customer: {
               name: order.userId?.name || 'Customer',
-              address: order.address?.street || order.address?.formattedAddress || 'Address not available',
+              phone: order.userId?.phone || null,
+              address: getCustomerAddress(),
               image: order.userId?.profileImage?.url || "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=100&h=100&fit=crop&q=80"
             },
             restaurant: {
               name: order.restaurantName || order.restaurantId?.name || 'Restaurant',
-              address: order.restaurantId?.address || order.restaurantId?.location?.formattedAddress || 'Address not available',
-              rating: order.restaurantId?.rating || 0
+              address: getRestaurantAddress(),
+              rating: order.restaurantId?.rating || 0,
+              phone: order.restaurantId?.phone || order.restaurantId?.ownerPhone || null
             },
             items: (order.items || []).map((item, idx) => ({
               id: idx + 1,
@@ -74,10 +128,14 @@ export default function AcceptedOrderDetails() {
             note: order.note || '', // Special instructions
             paymentMethod: {
               status: paymentStatus,
-              method: order.payment?.method === 'cash' || order.payment?.method === 'cod' ? 'Cash' : 'Online'
+              method: order.payment?.method === 'cash' || order.payment?.method === 'cod' ? 'COD' : 'Online'
             },
+            earnings: order.pricing?.deliveryFee || order.estimatedEarnings || 0,
             billing: {
               subtotal: order.pricing?.subtotal || 0,
+              deliveryFee: order.pricing?.deliveryFee || 0,
+              tax: order.pricing?.tax || 0,
+              discount: order.pricing?.discount || 0,
               deliverymanTips: 0.00,
               total: order.pricing?.total || 0
             },
@@ -160,30 +218,54 @@ export default function AcceptedOrderDetails() {
         <div className="w-10"></div>
       </div>
 
-      {/* Delivery Time Estimate */}
-      <div className="px-4 py-4 bg-transparent">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-14 h-14 bg-red-100 rounded-lg flex items-center justify-center relative overflow-hidden">
-              <Utensils className="w-7 h-7 text-red-600 z-10" />
-              {/* Flames effect */}
-              <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-orange-400 to-red-500 opacity-60"></div>
+      {/* Order Timeline - Show for delivered orders */}
+      {orderData.deliveredAt && (
+        <div className="px-4 py-3 bg-white mx-4 rounded-lg shadow-sm border border-gray-100">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 text-sm">Order Placed:</span>
+              <span className="text-gray-900 font-medium text-sm">{orderData.orderPlacedAt}</span>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 text-sm">Delivered:</span>
+              <span className="text-green-600 font-semibold text-sm">{orderData.deliveredAt}</span>
             </div>
-          </div>
-          <div>
-            <p className="text-gray-500 text-sm">Food need to deliver within</p>
-            <p className="text-[#ff8100] font-bold text-lg">{orderData.deliveryTime}</p>
+            {orderData.earnings > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                <span className="text-gray-600 text-sm">Earnings:</span>
+                <span className="text-green-600 font-bold text-sm">₹{orderData.earnings.toFixed(2)}</span>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Delivery Time Estimate - Only show for active orders */}
+      {!orderData.deliveredAt && (
+        <div className="px-4 py-4 bg-transparent">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-14 h-14 bg-red-100 rounded-lg flex items-center justify-center relative overflow-hidden">
+                <Utensils className="w-7 h-7 text-red-600 z-10" />
+                {/* Flames effect */}
+                <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-orange-400 to-red-500 opacity-60"></div>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+              </div>
+            </div>
+            <div>
+              <p className="text-gray-500 text-sm">Food need to deliver within</p>
+              <p className="text-[#ff8100] font-bold text-lg">{orderData.deliveryTime}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="px-4 py-4 space-y-6">
-        {/* Customer Contact Details */}
-        <div>
+        {/* Customer Contact Details - Hidden */}
+        {/* <div>
           <h3 className="text-gray-900 font-semibold mb-3">Customer Contact Details</h3>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-start gap-4">
@@ -194,7 +276,10 @@ export default function AcceptedOrderDetails() {
               />
               <div className="flex-1 min-w-0">
                 <p className="text-gray-900 font-medium mb-1">{orderData.customer.name}</p>
-                <p className="text-gray-600 text-sm whitespace-nowrap overflow-hidden text-ellipsis">{orderData.customer.address}</p>
+                {orderData.customer.phone && (
+                  <p className="text-gray-600 text-xs mb-1">{orderData.customer.phone}</p>
+                )}
+                <p className="text-gray-600 text-sm break-words">{orderData.customer.address}</p>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button 
@@ -207,7 +292,12 @@ export default function AcceptedOrderDetails() {
                 </button>
                 <button 
                   onClick={() => {
-                    window.open(`tel:+8801700000000`, '_self')
+                    const phone = orderData.customer.phone || orderData.restaurant.phone
+                    if (phone) {
+                      window.open(`tel:${phone}`, '_self')
+                    } else {
+                      window.open(`tel:+8801700000000`, '_self')
+                    }
                   }}
                   className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-green-500 flex items-center justify-center hover:bg-green-600 transition-colors flex-shrink-0"
                 >
@@ -215,7 +305,7 @@ export default function AcceptedOrderDetails() {
                 </button>
                 <button 
                   onClick={() => {
-                    const address = encodeURIComponent(orderData.restaurant.address)
+                    const address = encodeURIComponent(orderData.customer.address)
                     window.open(`https://www.google.com/maps/search/?api=1&query=${address}`, '_blank')
                   }}
                   className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gray-300 flex items-center justify-center hover:bg-gray-400 transition-colors flex-shrink-0"
@@ -225,7 +315,7 @@ export default function AcceptedOrderDetails() {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Restaurant Details */}
         <div>
@@ -237,13 +327,18 @@ export default function AcceptedOrderDetails() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-gray-900 font-medium mb-1">{orderData.restaurant.name}</p>
-                <p className="text-gray-600 text-sm mb-1 whitespace-nowrap overflow-hidden text-ellipsis">{orderData.restaurant.address}</p>
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-4 bg-[#ff8100] rounded-full flex items-center justify-center">
-                    <span className="text-white text-[8px]">★</span>
+                {orderData.restaurant.phone && (
+                  <p className="text-gray-600 text-xs mb-1">{orderData.restaurant.phone}</p>
+                )}
+                <p className="text-gray-600 text-sm mb-1 break-words">{orderData.restaurant.address}</p>
+                {orderData.restaurant.rating > 0 && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-4 h-4 bg-[#ff8100] rounded-full flex items-center justify-center">
+                      <span className="text-white text-[8px]">★</span>
+                    </div>
+                    <span className="text-gray-600 text-sm">({orderData.restaurant.rating})</span>
                   </div>
-                  <span className="text-gray-600 text-sm">({orderData.restaurant.rating})</span>
-                </div>
+                )}
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button 
@@ -256,7 +351,12 @@ export default function AcceptedOrderDetails() {
                 </button>
                 <button 
                   onClick={() => {
-                    window.open(`tel:+8801700000000`, '_self')
+                    const phone = orderData.restaurant.phone || orderData.customer.phone
+                    if (phone) {
+                      window.open(`tel:${phone}`, '_self')
+                    } else {
+                      window.open(`tel:+8801700000000`, '_self')
+                    }
                   }}
                   className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-green-500 flex items-center justify-center hover:bg-green-600 transition-colors flex-shrink-0"
                 >
@@ -340,14 +440,42 @@ export default function AcceptedOrderDetails() {
         <div>
           <h3 className="text-gray-900 font-semibold mb-3">Billing Info</h3>
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Subtotal</span>
-              <span className="text-gray-900 font-medium">₹ {orderData.billing.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-600">Deliveryman Tips</span>
-              <span className="text-gray-900 font-medium">(+) ₹ {orderData.billing.deliverymanTips.toFixed(2)}</span>
-            </div>
+            {orderData.billing.subtotal > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Subtotal</span>
+                <span className="text-gray-900 font-medium">₹ {orderData.billing.subtotal.toFixed(2)}</span>
+              </div>
+            )}
+            {orderData.billing.deliveryFee > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Delivery Fee</span>
+                <span className="text-green-600 font-medium">₹ {orderData.billing.deliveryFee.toFixed(2)}</span>
+              </div>
+            )}
+            {orderData.billing.tax > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Tax</span>
+                <span className="text-gray-900 font-medium">₹ {orderData.billing.tax.toFixed(2)}</span>
+              </div>
+            )}
+            {orderData.billing.discount > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Discount</span>
+                <span className="text-red-600 font-medium">-₹ {orderData.billing.discount.toFixed(2)}</span>
+              </div>
+            )}
+            {orderData.billing.deliverymanTips > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Deliveryman Tips</span>
+                <span className="text-gray-900 font-medium">(+) ₹ {orderData.billing.deliverymanTips.toFixed(2)}</span>
+              </div>
+            )}
+            {orderData.earnings > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                <span className="text-green-600 font-semibold">Earnings</span>
+                <span className="text-green-600 font-bold">₹ {orderData.earnings.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between pt-3 border-t border-gray-300">
               <span className="text-[#ff8100] font-semibold">Total Amount</span>
               <span className="text-[#ff8100] font-bold text-lg">₹ {orderData.billing.total.toFixed(2)}</span>

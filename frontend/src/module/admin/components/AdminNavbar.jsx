@@ -31,7 +31,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import appzetoLogo from "@/assets/appzetologo.png";
 import { adminAPI } from "@/lib/api";
 import { clearModuleAuth } from "@/lib/utils/auth";
 import { getCachedSettings, loadBusinessSettings } from "@/lib/utils/businessSettings";
@@ -199,8 +198,7 @@ export default function AdminNavbar({ onMenuClick }) {
                     className="w-24 h-10 object-contain" 
                     loading="lazy"
                     onError={(e) => {
-                      // Fallback to default logo if company logo fails to load
-                      e.target.src = appzetoLogo;
+                      e.target.style.display = 'none'
                     }}
                   />
                 ) : (
@@ -209,7 +207,9 @@ export default function AdminNavbar({ onMenuClick }) {
                       {businessSettings.companyName}
                     </span>
                   ) : (
-                    <img src={appzetoLogo} alt="Bakala" className="w-24 h-10 object-contain" loading="lazy" />
+                    <div className="w-24 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+                      Admin
+                    </div>
                   )
                 )}
               </div>

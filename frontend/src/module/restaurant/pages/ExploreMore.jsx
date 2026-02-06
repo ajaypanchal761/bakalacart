@@ -35,6 +35,7 @@ import { DateRangeCalendar } from "@/components/ui/date-range-calendar"
 import { clearModuleAuth, clearAuthData } from "@/lib/utils/auth"
 import { restaurantAPI } from "@/lib/api"
 import { firebaseAuth } from "@/lib/firebase"
+import BottomNavOrders from "../components/BottomNavOrders"
 
 // Time Picker Wheel Component
 function TimePickerWheel({ 
@@ -806,58 +807,59 @@ export default function ExploreMore() {
   )
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ 
-        duration: 0.2,
-        ease: [0.25, 0.1, 0.25, 1]
-      }}
-      className="min-h-screen bg-white overflow-x-hidden"
-    >
-      {/* Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
+    <div className="min-h-screen bg-white flex flex-col">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ 
-          duration: 0.25,
+          duration: 0.2,
           ease: [0.25, 0.1, 0.25, 1]
         }}
-        className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50"
+        className="flex-1 overflow-x-hidden pb-24"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-900" />
-            </button>
-            <h1 className="text-lg font-bold text-gray-900">Explore more</h1>
+        {/* Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ 
+            duration: 0.25,
+            ease: [0.25, 0.1, 0.25, 1]
+          }}
+          className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-50"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-900" />
+              </button>
+              <h1 className="text-lg font-bold text-gray-900">Explore more</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Search"
+              >
+                <Search className="w-5 h-5 text-gray-900" />
+              </button>
+              <button
+                onClick={() => setProfileOpen(true)}
+                className="p-2 hover:bg-gray-100 bg-gray-200 rounded-full transition-colors"
+                aria-label="Profile"
+              >
+                <UserRound className="w-5 h-5 text-gray-900 " />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Search"
-            >
-              <Search className="w-5 h-5 text-gray-900" />
-            </button>
-            <button
-              onClick={() => setProfileOpen(true)}
-              className="p-2 hover:bg-gray-100 bg-gray-200 rounded-full transition-colors"
-              aria-label="Profile"
-            >
-              <UserRound className="w-5 h-5 text-gray-900 " />
-            </button>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
 
-      {/* Main Content */}
-      <div className="px-4 py-6">
+        {/* Main Content */}
+        <div className="px-4 py-6">
         {/* Restaurant Information Card */}
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -1566,6 +1568,10 @@ export default function ExploreMore() {
           </>
         )}
       </AnimatePresence>
-    </motion.div>
+      </motion.div>
+
+      {/* Bottom Navigation */}
+      <BottomNavOrders />
+    </div>
   )
 }

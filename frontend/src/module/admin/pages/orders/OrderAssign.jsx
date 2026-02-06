@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Package, Search, CheckCircle2, XCircle, Loader2, User, Phone, IndianRupee, CheckSquare, Square } from "lucide-react"
+import { Package, Search, CheckCircle2, XCircle, Loader2, User, Phone, IndianRupee, CheckSquare, Square, MapPin, Navigation } from "lucide-react"
 import { adminAPI } from "@/lib/api"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -51,7 +51,15 @@ export default function OrderAssign() {
       const response = await adminAPI.getOrdersForAssignment(params)
 
       if (response.data?.success && response.data?.data?.orders) {
-        setOrders(response.data.data.orders)
+        const ordersData = response.data.data.orders
+        // Debug: Log restaurant location data
+        console.log('🔍 Orders with restaurant location:', ordersData.map(o => ({
+          orderId: o.orderId,
+          restaurant: o.restaurant,
+          restaurantLocation: o.restaurantLocation,
+          restaurantZoneName: o.restaurantZoneName
+        })))
+        setOrders(ordersData)
         setTotalPages(response.data.data.pagination?.pages || 1)
       } else {
         toast.error("Failed to fetch orders")
@@ -336,6 +344,12 @@ export default function OrderAssign() {
                     Restaurant
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Customer Location
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Restaurant Zone & Pin
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Food Items
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -389,6 +403,110 @@ export default function OrderAssign() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900 dark:text-white">
                         {order.restaurant}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 dark:text-white max-w-xs">
+                        {order.address ? (
+                          <div className="space-y-1">
+                            {order.address.formattedAddress ? (
+                              <div className="flex items-start gap-1">
+                                <MapPin className="w-3 h-3 mt-0.5 text-gray-500 flex-shrink-0" />
+                                <span className="text-xs break-words">{order.address.formattedAddress}</span>
+                              </div>
+                            ) : (
+                              <>
+                                {order.address.street && (
+                                  <div className="text-xs">{order.address.street}</div>
+                                )}
+                                {(order.address.area || order.address.city) && (
+                                  <div className="text-xs text-gray-500">
+                                    {[order.address.area, order.address.city].filter(Boolean).join(', ')}
+                                  </div>
+                                )}
+                                {(order.address.state || order.address.zipCode || order.address.pincode) && (
+                                  <div className="text-xs text-gray-500">
+                                    {[order.address.state, order.address.zipCode || order.address.pincode].filter(Boolean).join(' - ')}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            {order.address.additionalDetails && (
+                              <div className="text-xs text-gray-400 italic">
+                                {order.address.additionalDetails}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500 text-xs">Not available</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 dark:text-white max-w-xs">
+                        <div className="space-y-1">
+                          {order.restaurantZoneName ? (
+                            <div className="flex items-center gap-1">
+                              <Navigation className="w-3 h-3 text-blue-600" />
+                              <span className="text-xs font-medium">{order.restaurantZoneName}</span>
+                            </div>
+                          ) : null}
+                          {order.restaurantLocation ? (
+                            <div className="text-xs text-gray-500">
+                              <div className="flex items-start gap-1">
+                                <MapPin className="w-3 h-3 mt-0.5 text-gray-500 flex-shrink-0" />
+                                <span className="break-words">
+                                  {/* Priority 1: formattedAddress (live location from Google Maps) */}
+                                  {order.restaurantLocation.formattedAddress && 
+                                   order.restaurantLocation.formattedAddress.trim() !== '' &&
+                                   order.restaurantLocation.formattedAddress.trim() !== 'Select location' &&
+                                   !/^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(order.restaurantLocation.formattedAddress.trim())
+                                    ? order.restaurantLocation.formattedAddress.trim()
+                                    : null}
+                                  
+                                  {/* Priority 2: address field */}
+                                  {!order.restaurantLocation.formattedAddress && 
+                                   order.restaurantLocation.address && 
+                                   order.restaurantLocation.address.trim() !== '' &&
+                                   order.restaurantLocation.address.trim() !== 'Location not available'
+                                    ? order.restaurantLocation.address.trim()
+                                    : null}
+                                  
+                                  {/* Priority 3: Build from components */}
+                                  {!order.restaurantLocation.formattedAddress && 
+                                   !order.restaurantLocation.address && 
+                                   (order.restaurantLocation.area || order.restaurantLocation.city || order.restaurantLocation.addressLine1)
+                                    ? [
+                                        order.restaurantLocation.addressLine1,
+                                        order.restaurantLocation.addressLine2,
+                                        order.restaurantLocation.area,
+                                        order.restaurantLocation.city,
+                                        order.restaurantLocation.state
+                                      ].filter(Boolean).join(', ')
+                                    : null}
+                                  
+                                  {/* Pincode */}
+                                  {(order.restaurantLocation.pincode || order.restaurantLocation.zipCode || order.restaurantLocation.postalCode) && (
+                                    <span className="ml-1 font-medium">
+                                      - {order.restaurantLocation.pincode || order.restaurantLocation.zipCode || order.restaurantLocation.postalCode}
+                                    </span>
+                                  )}
+                                  
+                                  {/* Fallback if nothing found */}
+                                  {!order.restaurantLocation.formattedAddress && 
+                                   !order.restaurantLocation.address && 
+                                   !order.restaurantLocation.area && 
+                                   !order.restaurantLocation.city && 
+                                   !order.restaurantLocation.addressLine1
+                                    ? 'Location not available'
+                                    : null}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400">Pin location not set</div>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">

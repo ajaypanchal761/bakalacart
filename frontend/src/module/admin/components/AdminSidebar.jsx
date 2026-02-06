@@ -48,8 +48,6 @@ import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { sidebarMenuData } from "../data/sidebarMenu"
 import { getCachedSettings, loadBusinessSettings } from "@/lib/utils/businessSettings"
-import appzetoLogo from "@/assets/appzetologo.png"
-
 // Icon mapping
 const iconMap = {
   LayoutDashboard,
@@ -542,7 +540,9 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                     {companyName}
                   </span>
                 ) : (
-                  <img src={appzetoLogo} alt="Bakala" className="w-24 h-10 object-contain" loading="lazy" />
+                  <div className="w-24 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+                    Admin
+                  </div>
                 )}
               </div>
             </div>
@@ -566,7 +566,9 @@ export default function AdminSidebar({ isOpen = false, onClose, onCollapseChange
                     {companyName.charAt(0).toUpperCase()}
                   </span>
                 ) : (
-                  <img src={appzetoLogo} alt="Bakala" className="w-10 h-10 object-contain" loading="lazy" />
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">
+                    A
+                  </div>
                 )}
               </div>
             </div>

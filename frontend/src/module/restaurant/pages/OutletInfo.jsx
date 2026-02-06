@@ -274,15 +274,21 @@ export default function OutletInfo() {
       setImageType('menu')
       setUploadingCount(files.length)
 
-      // Get current images first to preserve them
+      // Get current cover images first to preserve them
       const currentResponse = await restaurantAPI.getCurrentRestaurant()
       const currentData = currentResponse?.data?.data?.restaurant || currentResponse?.data?.restaurant
-      const existingImages = currentData?.menuImages && Array.isArray(currentData.menuImages)
-        ? currentData.menuImages.map(img => ({
-            url: img.url,
+      // Use coverImages if available, otherwise fallback to menuImages for backward compatibility
+      const existingImages = currentData?.coverImages && Array.isArray(currentData.coverImages) && currentData.coverImages.length > 0
+        ? currentData.coverImages.map(img => ({
+            url: img.url || img,
             publicId: img.publicId
           }))
-        : []
+        : (currentData?.menuImages && Array.isArray(currentData.menuImages) && currentData.menuImages.length > 0
+          ? currentData.menuImages.map(img => ({
+              url: img.url || img,
+              publicId: img.publicId
+            }))
+          : [])
 
       // Upload all images and collect their URLs
       // Since backend replaces first image, we'll collect all uploaded URLs
@@ -344,10 +350,10 @@ export default function OutletInfo() {
           }
         })
 
-        // Update profile with complete array of images
+        // Update profile with complete array of cover images (these will be shown on user side restaurant cards)
         try {
           await restaurantAPI.updateProfile({
-            menuImages: allImages
+            coverImages: allImages // Save as coverImages so they show on user side restaurant cards
           })
           if (uploadedImageData.length === files.length) {
             toast.success(`Successfully uploaded ${uploadedImageData.length} image(s)`)
@@ -371,10 +377,17 @@ export default function OutletInfo() {
         const data = response?.data?.data?.restaurant || response?.data?.restaurant
         if (data) {
           setRestaurantData(data)
-          // Update from refreshed data
-          if (data.menuImages && Array.isArray(data.menuImages) && data.menuImages.length > 0) {
+          // Update from refreshed data - check coverImages first, then fallback to menuImages
+          if (data.coverImages && Array.isArray(data.coverImages) && data.coverImages.length > 0) {
+            const refreshedImages = data.coverImages.map(img => ({
+              url: img.url || img,
+              publicId: img.publicId
+            }))
+            setCoverImages(refreshedImages)
+            setMainImage(refreshedImages[0].url)
+          } else if (data.menuImages && Array.isArray(data.menuImages) && data.menuImages.length > 0) {
             const refreshedImages = data.menuImages.map(img => ({
-              url: img.url,
+              url: img.url || img,
               publicId: img.publicId
             }))
             setCoverImages(refreshedImages)
@@ -425,16 +438,16 @@ export default function OutletInfo() {
         setMainImage("https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=400&fit=crop")
       }
 
-      // Update backend - convert coverImages back to menuImages format for API
-      const menuImagesForBackend = updatedImages.map(img => ({
+      // Update backend - save as coverImages so they show on user side restaurant cards
+      const coverImagesForBackend = updatedImages.map(img => ({
         url: typeof img === 'string' ? img : img.url,
         publicId: typeof img === 'string' ? null : (img.publicId || null)
       }))
 
-      // Update restaurant profile with new menuImages array
+      // Update restaurant profile with new coverImages array
       try {
         const updateResponse = await restaurantAPI.updateProfile({
-          menuImages: menuImagesForBackend.length > 0 ? menuImagesForBackend : []
+          coverImages: coverImagesForBackend.length > 0 ? coverImagesForBackend : []
         })
 
         if (updateResponse?.data && !updateResponse.data.success) {

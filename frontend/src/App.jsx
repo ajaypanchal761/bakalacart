@@ -14,12 +14,24 @@ const LoadingFallback = () => (
 
 // Helper to ensure dynamic imports work with Vite aliases
 const lazyImport = (importFn) => lazy(() => {
-  try {
-    return importFn()
-  } catch (error) {
-    console.error('Dynamic import error:', error)
-    throw error
-  }
+  return importFn().catch((error) => {
+    // Log a helpful error message for dynamic import failures
+    console.error('❌ Dynamic import failed. This is usually a Vite dev server cache issue.', {
+      error,
+      suggestion: 'Try: 1) Stop dev server, 2) Delete node_modules/.vite folder, 3) Restart dev server'
+    })
+    // Retry once after a short delay
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        importFn()
+          .then(resolve)
+          .catch((retryError) => {
+            console.error('❌ Dynamic import failed after retry. Please restart the dev server.', retryError)
+            reject(retryError)
+          })
+      }, 1000)
+    })
+  })
 })
 
 // Lazy load all route components for code splitting

@@ -108,6 +108,12 @@ const restaurantSchema = new mongoose.Schema(
       url: String,
       publicId: String,
     },
+    coverImages: [
+      {
+        url: String,
+        publicId: String,
+      },
+    ],
     menuImages: [
       {
         url: String,

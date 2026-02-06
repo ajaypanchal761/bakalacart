@@ -3,6 +3,7 @@ import { successResponse, errorResponse } from '../../../shared/utils/response.j
 import Order from '../../order/models/Order.js';
 import Payment from '../../payment/models/Payment.js';
 import Restaurant from '../../restaurant/models/Restaurant.js';
+import OrderSettlement from '../../order/models/OrderSettlement.js';
 import mongoose from 'mongoose';
 import winston from 'winston';
 
@@ -94,6 +95,7 @@ export const getTripHistory = asyncHandler(async (req, res) => {
     // Fetch orders
     const orders = await Order.find(query)
       .populate('userId', 'name phone')
+      .populate('restaurantId', 'name location restaurantId') // Populate restaurant with location
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -116,6 +118,25 @@ export const getTripHistory = asyncHandler(async (req, res) => {
     } catch (e) {
       // Ignore payment lookup errors
       logger.warn('Could not fetch payment records for COD check:', e.message);
+    }
+
+    // Fetch OrderSettlement records to get delivery boy earnings
+    const settlementMap = new Map();
+    try {
+      const settlements = await OrderSettlement.find({
+        orderId: { $in: orderIds }
+      }).select('orderId deliveryPartnerEarning.totalEarning').lean();
+      
+      settlements.forEach(settlement => {
+        if (settlement.orderId) {
+          // Handle both ObjectId and string formats
+          const orderIdKey = settlement.orderId.toString ? settlement.orderId.toString() : String(settlement.orderId);
+          settlementMap.set(orderIdKey, settlement.deliveryPartnerEarning?.totalEarning || 0);
+        }
+      });
+    } catch (e) {
+      // Ignore settlement lookup errors
+      logger.warn('Could not fetch settlement records for earnings:', e.message);
     }
 
     // Get unique restaurant IDs that need name lookup (where restaurantName is missing/empty)
@@ -194,8 +215,10 @@ export const getTripHistory = asyncHandler(async (req, res) => {
                         'Unknown Restaurant';
       }
 
-      // Get order amount (delivery fee or total)
-      const amount = order.pricing?.deliveryFee || order.pricing?.total || 0;
+      // Get delivery boy's earning from settlement, fallback to delivery fee
+      const orderIdStr = order._id.toString();
+      const earning = settlementMap.get(orderIdStr) || order.pricing?.deliveryFee || 0;
+      const amount = earning; // Keep 'amount' field for backward compatibility, but it now represents earning
 
       // Get payment method - check Payment collection as fallback (for COD orders)
       let paymentMethod = order.payment?.method || 'razorpay';
@@ -204,12 +227,24 @@ export const getTripHistory = asyncHandler(async (req, res) => {
         paymentMethod = 'cash';
       }
 
+      // Get restaurant location
+      const restaurantLocation = order.restaurantId?.location || null;
+      
       return {
         id: order._id.toString(),
         orderId: order.orderId,
         restaurant: restaurantName,
         restaurantName: restaurantName, // Also include for compatibility
+        restaurantId: order.restaurantId ? {
+          _id: order.restaurantId._id || order.restaurantId,
+          name: restaurantName,
+          location: restaurantLocation // Include restaurant location
+        } : null,
         customer: order.userId?.name || 'Unknown Customer',
+        userId: order.userId || null, // Include user data
+        address: order.address || null, // Include customer address
+        items: order.items || [], // Include order items
+        pricing: order.pricing || null, // Include pricing details
         status: displayStatus,
         time,
         amount,

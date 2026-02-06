@@ -158,6 +158,12 @@ export const sidebarMenuData = [
       },
       {
         type: "link",
+        label: "Delivery Boy Commission",
+        path: "/admin/delivery-partners/commission",
+        icon: "DollarSign",
+      },
+      {
+        type: "link",
         label: "Cash limit settlement",
         path: "/admin/cash-limit-settlement",
         icon: "Receipt",

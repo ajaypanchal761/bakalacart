@@ -198,12 +198,33 @@ export const getRestaurants = async (req, res) => {
     }
     
     // Fetch restaurants - Show ALL restaurants regardless of zone
+    // Fetch all fields (coverImages and menuImages are included by default)
     let restaurants = await Restaurant.find(query)
       .select('-owner -createdAt -updatedAt -password')
       .sort(sortObj)
       .limit(parseInt(limit))
       .skip(parseInt(offset))
       .lean();
+    
+    // Ensure coverImages and menuImages are included in response
+    // If coverImages don't exist but menuImages do, use menuImages as coverImages (backward compatibility)
+    restaurants = restaurants.map(restaurant => {
+      const hasCoverImages = restaurant.coverImages && Array.isArray(restaurant.coverImages) && restaurant.coverImages.length > 0
+      const hasMenuImages = restaurant.menuImages && Array.isArray(restaurant.menuImages) && restaurant.menuImages.length > 0
+      
+      // Use coverImages if available, otherwise fallback to menuImages for backward compatibility
+      // This ensures restaurants that uploaded images via OutletInfo (saved as menuImages before) still show images
+      const coverImages = hasCoverImages 
+        ? restaurant.coverImages 
+        : (hasMenuImages ? restaurant.menuImages : [])
+      
+      return {
+        ...restaurant,
+        coverImages: coverImages, // This will be used by frontend for restaurant cards
+        menuImages: restaurant.menuImages || [], // Keep original menuImages separate
+        profileImage: restaurant.profileImage || null
+      }
+    });
     
     // Note: We show all restaurants regardless of zone. Zone-based filtering is removed.
     // Users in any zone will see all restaurants.
@@ -455,7 +476,7 @@ export const createRestaurantFromOnboarding = async (onboardingData, restaurantI
 export const updateRestaurantProfile = asyncHandler(async (req, res) => {
   try {
     const restaurantId = req.restaurant._id;
-    const { profileImage, menuImages, name, cuisines, location, ownerName, ownerEmail, ownerPhone } = req.body;
+    const { profileImage, menuImages, coverImages, name, cuisines, location, ownerName, ownerEmail, ownerPhone } = req.body;
 
     const restaurant = await Restaurant.findById(restaurantId);
 
@@ -470,7 +491,12 @@ export const updateRestaurantProfile = asyncHandler(async (req, res) => {
       updateData.profileImage = profileImage;
     }
 
-    // Update menu images if provided
+    // Update cover images if provided (these are the restaurant cover/banner images)
+    if (coverImages !== undefined) {
+      updateData.coverImages = coverImages;
+    }
+
+    // Update menu images if provided (these are separate from cover images)
     if (menuImages !== undefined) {
       updateData.menuImages = menuImages;
     }

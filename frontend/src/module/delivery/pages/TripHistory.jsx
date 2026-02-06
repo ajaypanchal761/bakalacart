@@ -366,7 +366,7 @@ export default function TripHistory() {
                     <p className="text-sm font-medium text-black mt-1">{trip.time}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">Amount</p>
+                    <p className="text-xs text-gray-500">Earning</p>
                     <p className="text-sm font-semibold text-black mt-1">₹{trip.amount}</p>
                   </div>
                 </div>

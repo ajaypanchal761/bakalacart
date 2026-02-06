@@ -65,6 +65,7 @@ import DeliverymanBonus from "../pages/delivery-partners/DeliverymanBonus";
 import EarningAddon from "../pages/delivery-partners/EarningAddon";
 import EarningAddonHistory from "../pages/delivery-partners/EarningAddonHistory";
 import DeliveryEarnings from "../pages/delivery-partners/DeliveryEarnings";
+import DeliveryBoyCommission from "../pages/delivery-partners/DeliveryBoyCommission";
 // Disbursement Management
 import RestaurantDisbursement from "../pages/RestaurantDisbursement";
 import DeliverymanDisbursement from "../pages/DeliverymanDisbursement";
@@ -234,6 +235,7 @@ export default function AdminRouter() {
         <Route path="delivery-partners/earning-addon" element={<EarningAddon />} />
         <Route path="delivery-partners/earning-addon-history" element={<EarningAddonHistory />} />
         <Route path="delivery-partners/earnings" element={<DeliveryEarnings />} />
+        <Route path="delivery-partners/commission" element={<DeliveryBoyCommission />} />
 
         {/* DISBURSEMENT MANAGEMENT */}
         <Route path="restaurant-disbursement" element={<RestaurantDisbursement />} />

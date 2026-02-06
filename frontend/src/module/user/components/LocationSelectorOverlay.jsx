@@ -207,7 +207,7 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
 
   // Global error suppression for Ola Maps SDK errors (runs on component mount)
   useEffect(() => {
-    // Suppress console errors for non-critical Ola Maps SDK errors
+    // Suppress console errors for non-critical Ola Maps SDK errors and image loading errors
     const originalConsoleError = console.error
     const errorSuppressor = (...args) => {
       const errorStr = args.join(' ')
@@ -218,7 +218,10 @@ export default function LocationSelectorOverlay({ isOpen, onClose }) {
           errorStr.includes('3d_model') ||
           (errorStr.includes('Source layer') && errorStr.includes('does not exist')) ||
           (errorStr.includes('AJAXError') && errorStr.includes('sprite')) ||
-          (errorStr.includes('AJAXError') && errorStr.includes('olamaps.io'))) {
+          (errorStr.includes('AJAXError') && errorStr.includes('olamaps.io')) ||
+          // Suppress image loading errors (handled gracefully by OptimizedImage component)
+          errorStr.includes('Image failed to load') ||
+          errorStr.includes('Failed to load image')) {
         // Silently ignore these non-critical errors
         return
       }

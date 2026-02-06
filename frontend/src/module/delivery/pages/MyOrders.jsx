@@ -19,11 +19,19 @@ import {
   MapPin,
   Navigation,
   Camera,
-  IndianRupee
+  IndianRupee,
+  Eye
 } from "lucide-react"
 import { deliveryAPI, uploadAPI } from "@/lib/api"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from "@/components/ui/dialog"
 
 export default function MyOrders() {
   const navigate = useNavigate()
@@ -39,6 +47,11 @@ export default function MyOrders() {
   const [ratingValue, setRatingValue] = useState(5)
   const [reviewText, setReviewText] = useState("")
   const [submittingRating, setSubmittingRating] = useState(false)
+
+  // Order Details Dialog State
+  const [showOrderDetailsDialog, setShowOrderDetailsDialog] = useState(false)
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null)
+  const [showMenuForOrder, setShowMenuForOrder] = useState(null) // Track which order's menu is open
 
   // Fetch orders from API
   useEffect(() => {
@@ -73,8 +86,19 @@ export default function MyOrders() {
           if (response?.data?.success && response?.data?.data?.trips) {
             ordersData = response.data.data.trips || []
             console.log(`✅ Found ${activeTab} orders:`, ordersData.length)
+            // Debug: Log first few orders to check their status
+            if (ordersData.length > 0) {
+              console.log('📋 Sample orders from API:', ordersData.slice(0, 3).map(o => ({
+                orderId: o.orderId,
+                status: o.status,
+                deliveryState: o.deliveryState
+              })))
+            }
           } else if (response?.data?.data?.orders) {
             ordersData = response.data.data.orders || []
+            console.log(`✅ Found ${activeTab} orders (from orders field):`, ordersData.length)
+          } else {
+            console.warn('⚠️ No trips or orders found in API response:', response?.data)
           }
         }
 
@@ -296,7 +320,7 @@ export default function MyOrders() {
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
-      const restaurantName = (order.restaurantName || order.restaurantId?.name || '').toLowerCase()
+      const restaurantName = (order.restaurantName || order.restaurant?.name || order.restaurantId?.name || '').toLowerCase()
       const itemNames = (order.items || []).map(item => item.name?.toLowerCase() || '').join(' ')
       const orderId = (order.orderId || order._id || '').toLowerCase()
       if (!restaurantName.includes(query) && !itemNames.includes(query) && !orderId.includes(query)) {
@@ -308,11 +332,50 @@ export default function MyOrders() {
     if (activeTab === "pending") {
       return isActiveOrder(order)
     } else if (activeTab === "delivered") {
-      const status = order.status || order.orderStatus
-      return status === 'delivered' || status === 'completed'
+      // Check multiple status fields and formats
+      const status = order.status || order.orderStatus || ''
+      const deliveryStatus = order.deliveryState?.status || ''
+      const deliveryPhase = order.deliveryState?.currentPhase || ''
+      
+      // Trip History API returns "Completed" (capital C), regular orders use lowercase
+      const normalizedStatus = status.toLowerCase()
+      const normalizedDeliveryStatus = deliveryStatus.toLowerCase()
+      
+      const isDelivered = (
+        normalizedStatus === 'delivered' ||
+        normalizedStatus === 'completed' ||
+        status === 'Completed' || // Trip History format
+        normalizedDeliveryStatus === 'delivered' ||
+        normalizedDeliveryStatus === 'completed' ||
+        deliveryPhase === 'delivered' ||
+        deliveryPhase === 'completed' ||
+        isOrderDelivered(order) // Use helper function as fallback
+      )
+      
+      // Debug logging for delivered tab
+      if (!isDelivered && orders.length > 0) {
+        console.log('🔍 Order filtered out from delivered:', {
+          orderId: order.orderId || order._id,
+          status,
+          deliveryStatus,
+          deliveryPhase,
+          normalizedStatus,
+          normalizedDeliveryStatus
+        })
+      }
+      
+      return isDelivered
     } else if (activeTab === "cancelled") {
-      const status = order.status || order.orderStatus
-      return status === 'cancelled'
+      const status = order.status || order.orderStatus || ''
+      const deliveryStatus = order.deliveryState?.status || ''
+      
+      // Trip History API returns "Cancelled" (capital C), regular orders use lowercase
+      return (
+        status === 'cancelled' ||
+        status === 'Cancelled' ||
+        deliveryStatus === 'cancelled' ||
+        deliveryStatus === 'Cancelled'
+      )
     }
 
     return true
@@ -846,10 +909,13 @@ export default function MyOrders() {
         restaurantInfo: orderData,
         showMap: true,
         showRoute: true,
+        showRoutePath: true, // Enable route path display
         hasDirectionsAPI: true,
         acceptedAt: new Date().toISOString(),
         currentLocation: currentLocation,
-        navigationMode: 'restaurant' // Route to restaurant
+        navigationMode: 'restaurant', // Route to restaurant
+        shouldShowPolyline: true, // Flag to show polyline
+        enableLiveTracking: true // Enable live tracking
       }))
 
       // Navigate to DeliveryHome
@@ -1195,68 +1261,249 @@ export default function MyOrders() {
                             </button>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{restaurantLocation}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {(() => {
+                            // Priority 1: Show restaurant pin location (formattedAddress) if available
+                            const loc = order.restaurantId?.location || order.restaurantLocation
+                            
+                            if (loc?.formattedAddress && loc.formattedAddress.trim() !== '' && loc.formattedAddress.trim() !== 'Select location') {
+                              // Check if it's coordinates, skip if so
+                              const isCoordinates = /^-?\d+\.\d+,\s*-?\d+\.\d+$/.test(loc.formattedAddress.trim())
+                              if (!isCoordinates) {
+                                return loc.formattedAddress.trim()
+                              }
+                            }
+                            
+                            // Priority 2: Build from address components
+                            if (loc) {
+                              const parts = []
+                              if (loc.addressLine1) parts.push(loc.addressLine1.trim())
+                              else if (loc.street) parts.push(loc.street.trim())
+                              
+                              if (loc.addressLine2) parts.push(loc.addressLine2.trim())
+                              if (loc.area) parts.push(loc.area.trim())
+                              if (loc.city) parts.push(loc.city.trim())
+                              if (loc.state) parts.push(loc.state.trim())
+                              
+                              const pin = loc.pincode || loc.zipCode || loc.postalCode
+                              if (pin) parts.push(pin.toString().trim())
+                              
+                              if (parts.length > 0) {
+                                return parts.join(', ')
+                              }
+                              
+                              // Check address field
+                              if (loc.address && loc.address.trim() !== '' && loc.address.trim() !== 'Location not available') {
+                                return loc.address.trim()
+                              }
+                            }
+                            
+                            // Priority 3: Use getRestaurantLocation helper
+                            const helperLocation = getRestaurantLocation(order)
+                            if (helperLocation && helperLocation !== 'Location not available') {
+                              return helperLocation
+                            }
+                            
+                            return 'Location not available'
+                          })()}
+                        </p>
                         <p className="text-xs text-gray-400 mt-1">Order ID: {orderId}</p>
                       </div>
                     </div>
 
-                    <button
-                      className="p-1 hover:bg-gray-100 rounded-full shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                      }}
-                    >
-                      <MoreVertical className="w-5 h-5 text-gray-400" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        className="p-1 hover:bg-gray-100 rounded-full shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowMenuForOrder(showMenuForOrder === orderId ? null : orderId)
+                        }}
+                      >
+                        <MoreVertical className="w-5 h-5 text-gray-400" />
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {showMenuForOrder === orderId && (
+                        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-[150px]">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              e.preventDefault()
+                              // Close menu first
+                              setShowMenuForOrder(null)
+                              
+                              // Navigate to order details page
+                              const orderIdToNavigate = order.orderId || order._id || orderId
+                              console.log('🔍 View Details clicked for order:', orderIdToNavigate, order)
+                              
+                              if (orderIdToNavigate) {
+                                const path = `/delivery/order-details/${orderIdToNavigate}`
+                                console.log('📍 Navigating to:', path)
+                                
+                                // Use setTimeout to ensure menu closes before navigation
+                                setTimeout(() => {
+                                  navigate(path, { replace: false })
+                                }, 50)
+                              } else {
+                                console.error('❌ Order ID not found:', order)
+                                toast.error('Order ID not found')
+                              }
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View Details
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Separator */}
+                  {activeTab !== "delivered" && (
                   <div className="border-t border-dashed border-gray-200 mx-4 my-1"></div>
+                  )}
 
-                  {/* Items List */}
+                  {/* Items List - Hidden for delivered orders */}
+                  {activeTab !== "delivered" && (
                   <div className="px-4 py-2">
                     {order.items && order.items.length > 0 ? (
-                      order.items.slice(0, 3).map((item, idx) => (
-                        <div key={item._id || item.itemId || idx} className="flex items-center gap-2 mt-1">
-                          <div className={`w-4 h-4 border ${item.isVeg ? 'border-green-600' : 'border-red-600'} flex items-center justify-center p-[2px] shrink-0`}>
-                            <div className={`w-full h-full rounded-full ${item.isVeg ? 'bg-green-600' : 'bg-red-600'}`}></div>
+                      order.items.map((item, idx) => (
+                        <div key={item._id || item.itemId || idx} className="flex items-center justify-between gap-2 mt-2 first:mt-0">
+                          <div className="flex items-center gap-2 flex-1">
+                            <div className={`w-4 h-4 border ${item.isVeg ? 'border-green-600' : 'border-red-600'} flex items-center justify-center p-[2px] shrink-0`}>
+                              <div className={`w-full h-full rounded-full ${item.isVeg ? 'bg-green-600' : 'bg-red-600'}`}></div>
+                            </div>
+                            <span className="text-sm text-gray-700 font-medium">
+                              {item.quantity || 1} x {item.name}
+                            </span>
                           </div>
-                          <span className="text-sm text-gray-700 font-medium">
-                            {item.quantity || 1} x {item.name}
-                          </span>
+                          {item.price && (
+                            <span className="text-sm text-gray-600 font-medium">
+                              ₹{((item.price || 0) * (item.quantity || 1)).toFixed(2)}
+                            </span>
+                          )}
                         </div>
                       ))
                     ) : (
                       <p className="text-sm text-gray-500">No items listed</p>
                     )}
-                    {order.items && order.items.length > 3 && (
-                      <p className="text-xs text-gray-400 mt-1">+{order.items.length - 3} more items</p>
-                    )}
                   </div>
+                  )}
 
-                  {/* Date and Price */}
-                  <div className="px-4 py-2 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-gray-400">Order placed on {orderDate}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs font-medium ${isDelivered ? 'text-green-600' :
-                          isCancelled ? 'text-red-600' :
-                            'text-orange-600'
+                  {/* Order Details - Show full details for delivered orders */}
+                  {activeTab === "delivered" && (
+                    <>
+                      <div className="border-t border-dashed border-gray-200 mx-4 my-2"></div>
+                      
+                      {/* Customer Details - Hidden */}
+                      {false && (
+                      <div className="px-4 py-2 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs font-semibold text-gray-600 min-w-[80px]">Customer:</span>
+                          <span className="text-xs text-gray-800">{order.userId?.name || order.customer || 'N/A'}</span>
+                        </div>
+                        
+                        {order.address && (
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs font-semibold text-gray-600 min-w-[80px]">Address:</span>
+                            <div className="flex-1">
+                              {order.address.formattedAddress ? (
+                                <span className="text-xs text-gray-800">{order.address.formattedAddress}</span>
+                              ) : (
+                                <div className="text-xs text-gray-800">
+                                  {order.address.street && <div>{order.address.street}</div>}
+                                  {(order.address.area || order.address.city) && (
+                                    <div>{[order.address.area, order.address.city].filter(Boolean).join(', ')}</div>
+                                  )}
+                                  {(order.address.state || order.address.pincode || order.address.zipCode) && (
+                                    <div>{[order.address.state, order.address.pincode || order.address.zipCode].filter(Boolean).join(' - ')}</div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {order.userId?.phone && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-gray-600 min-w-[80px]">Phone:</span>
+                            <span className="text-xs text-gray-800">{order.userId.phone}</span>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-gray-600 min-w-[80px]">Payment:</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            (order.payment?.method || order.paymentMethod || '').toLowerCase() === 'cash' || 
+                            (order.payment?.method || order.paymentMethod || '').toLowerCase() === 'cod'
+                              ? 'bg-amber-100 text-amber-700' 
+                              : 'bg-green-100 text-green-700'
                           }`}>
-                          {orderStatus}
-                        </span>
-                        {isActive && activeTab === "pending" && (
-                          <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
-                            Active
+                            {(() => {
+                              const paymentMethod = (order.payment?.method || order.paymentMethod || 'razorpay').toLowerCase()
+                              if (paymentMethod === 'cash' || paymentMethod === 'cod') {
+                                return 'COD'
+                              }
+                              return 'Online'
+                            })()}
                           </span>
+                        </div>
+                        
+                        {order.deliveredAt && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-gray-600 min-w-[80px]">Delivered:</span>
+                            <span className="text-xs text-gray-800">{formatOrderDate(order.deliveredAt)}</span>
+                          </div>
                         )}
                       </div>
+                      )}
+
+                    </>
+                  )}
+
+                  {/* Date and Price */}
+                  {activeTab === "delivered" ? (
+                    <div className="px-4 py-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-green-600">
+                          {orderStatus}
+                        </span>
+                        {(() => {
+                          const earnings = order.pricing?.deliveryFee || order.estimatedEarnings || order.earnings || 0
+                          return (
+                            <span className="text-green-600 font-bold text-lg">
+                              Earnings: ₹{Number(earnings).toFixed(2)}
+                            </span>
+                          )
+                        })()}
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <span className="text-sm font-semibold text-gray-800">₹{orderPrice.toFixed(2)}</span>
-                      <ChevronRight className="w-4 h-4 text-gray-400 ml-1" />
+                  ) : (
+                    <div className="px-4 py-2 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-400">Order placed on {orderDate}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs font-medium ${isDelivered ? 'text-green-600' :
+                            isCancelled ? 'text-red-600' :
+                              'text-orange-600'
+                            }`}>
+                            {orderStatus}
+                          </span>
+                          {isActive && activeTab === "pending" && (
+                            <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-sm font-semibold text-gray-800">₹{orderPrice.toFixed(2)}</span>
+                        <ChevronRight className="w-4 h-4 text-gray-400 ml-1" />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Separator */}
                   <div className="border-t border-gray-100 mx-4"></div>
@@ -1345,30 +1592,269 @@ export default function MyOrders() {
                         </div>
                       </div>
                     ) : !isCancelled ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (order.restaurantId) {
-                            navigate(`/restaurant/${order.restaurantId?.slug || order.restaurantId?._id || order.restaurantId}`)
-                          }
-                        }}
-                        className="w-full bg-[#E23744] hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-1 shadow-sm transition-colors"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        Reorder
-                      </button>
+                      // Removed Reorder button as per user request
+                      // Hide status for delivered orders (already shown at top)
+                      activeTab !== "delivered" ? (
+                      <div className="flex items-center justify-center py-2">
+                        <span className="text-sm text-gray-600">{orderStatus}</span>
+                      </div>
+                      ) : null
                     ) : (
                       <div>
                         <span className="text-sm text-gray-800">{orderStatus}</span>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+        )}
+      </div>
+
+      {/* Close menu when clicking outside */}
+      {showMenuForOrder && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowMenuForOrder(null)}
+        />
+      )}
+    </div>
+  )
+})}
           </div>
         )}
       </div>
+
+      {/* Order Details Dialog */}
+      <Dialog open={showOrderDetailsDialog} onOpenChange={setShowOrderDetailsDialog}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          {selectedOrderForDetails && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Order Details</DialogTitle>
+                <DialogDescription>
+                  Order ID: {selectedOrderForDetails.orderId || selectedOrderForDetails._id || 'N/A'}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 mt-4">
+                {/* Order Time */}
+                <div className="border-b pb-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm font-semibold text-gray-700">Order Placed</span>
+                  </div>
+                  <p className="text-sm text-gray-600 ml-6">
+                    {formatOrderDate(selectedOrderForDetails.createdAt)}
+                  </p>
+                </div>
+
+                {/* Customer Details - Hidden */}
+                {false && (
+                <>
+                <div className="border-b pb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm font-semibold text-gray-700">Customer Details</span>
+                  </div>
+                  <div className="ml-6 space-y-1">
+                    <p className="text-sm text-gray-800">
+                      <span className="font-medium">Name:</span> {selectedOrderForDetails.userId?.name || selectedOrderForDetails.customer || 'N/A'}
+                    </p>
+                    {selectedOrderForDetails.userId?.phone && (
+                      <p className="text-sm text-gray-800">
+                        <span className="font-medium">Phone:</span> {selectedOrderForDetails.userId.phone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {selectedOrderForDetails.address && (
+                  <div className="border-b pb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPin className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-semibold text-gray-700">Customer Address</span>
+                    </div>
+                    <div className="ml-6">
+                      {selectedOrderForDetails.address.formattedAddress ? (
+                        <p className="text-sm text-gray-800">{selectedOrderForDetails.address.formattedAddress}</p>
+                      ) : (
+                        <div className="text-sm text-gray-800 space-y-1">
+                          {selectedOrderForDetails.address.street && (
+                            <p>{selectedOrderForDetails.address.street}</p>
+                          )}
+                          {(selectedOrderForDetails.address.area || selectedOrderForDetails.address.city) && (
+                            <p>{[selectedOrderForDetails.address.area, selectedOrderForDetails.address.city].filter(Boolean).join(', ')}</p>
+                          )}
+                          {(selectedOrderForDetails.address.state || selectedOrderForDetails.address.pincode || selectedOrderForDetails.address.zipCode) && (
+                            <p>{[selectedOrderForDetails.address.state, selectedOrderForDetails.address.pincode || selectedOrderForDetails.address.zipCode].filter(Boolean).join(' - ')}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                </>
+                )}
+
+                {/* Restaurant Details */}
+                <div className="border-b pb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Navigation className="w-4 h-4 text-green-500" />
+                    <span className="text-sm font-semibold text-gray-700">Restaurant Details</span>
+                  </div>
+                  <div className="ml-6 space-y-1">
+                    <p className="text-sm text-gray-800">
+                      <span className="font-medium">Name:</span> {selectedOrderForDetails.restaurantName || selectedOrderForDetails.restaurantId?.name || selectedOrderForDetails.restaurant || 'N/A'}
+                    </p>
+                    <div>
+                      <span className="font-medium text-sm text-gray-800">Address: </span>
+                      {(() => {
+                        const loc = selectedOrderForDetails.restaurantId?.location || selectedOrderForDetails.restaurantLocation
+                        if (loc?.formattedAddress) {
+                          return <span className="text-sm text-gray-800">{loc.formattedAddress}</span>
+                        }
+                        if (loc?.addressLine1) {
+                          return (
+                            <span className="text-sm text-gray-800">
+                              {loc.addressLine1}
+                              {loc.addressLine2 && `, ${loc.addressLine2}`}
+                              {loc.area && `, ${loc.area}`}
+                              {loc.city && `, ${loc.city}`}
+                              {loc.state && `, ${loc.state}`}
+                              {loc.pincode && ` - ${loc.pincode}`}
+                            </span>
+                          )
+                        }
+                        return <span className="text-sm text-gray-500">Location not available</span>
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Items */}
+                {selectedOrderForDetails.items && selectedOrderForDetails.items.length > 0 && (
+                  <div className="border-b pb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="w-4 h-4 text-orange-500" />
+                      <span className="text-sm font-semibold text-gray-700">Order Items</span>
+                    </div>
+                    <div className="ml-6 space-y-2">
+                      {selectedOrderForDetails.items.map((item, idx) => (
+                        <div key={item._id || item.itemId || idx} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 border ${item.isVeg ? 'border-green-600' : 'border-red-600'} flex items-center justify-center p-[1px] shrink-0`}>
+                              <div className={`w-full h-full rounded-full ${item.isVeg ? 'bg-green-600' : 'bg-red-600'}`}></div>
+                            </div>
+                            <span className="text-sm text-gray-800">
+                              {item.quantity || 1} x {item.name}
+                            </span>
+                          </div>
+                          {item.price && (
+                            <span className="text-sm text-gray-600 font-medium">
+                              ₹{((item.price || 0) * (item.quantity || 1)).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Delivery Time */}
+                {selectedOrderForDetails.deliveredAt && (
+                  <div className="border-b pb-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <span className="text-sm font-semibold text-gray-700">Delivered At</span>
+                    </div>
+                    <p className="text-sm text-gray-600 ml-6">
+                      {formatOrderDate(selectedOrderForDetails.deliveredAt)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Earnings */}
+                {(selectedOrderForDetails.pricing?.deliveryFee || selectedOrderForDetails.estimatedEarnings) && (
+                  <div className="border-b pb-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <IndianRupee className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-semibold text-gray-700">Earnings</span>
+                    </div>
+                    <p className="text-sm text-green-600 font-semibold ml-6">
+                      ₹{(selectedOrderForDetails.pricing?.deliveryFee || selectedOrderForDetails.estimatedEarnings || 0).toFixed(2)}
+                    </p>
+                  </div>
+                )}
+
+                {/* Payment Method */}
+                <div className="border-b pb-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-semibold text-gray-700">Payment Mode</span>
+                  </div>
+                  <div className="ml-6">
+                    <span className={`text-sm font-medium px-3 py-1 rounded-full inline-block ${
+                      (() => {
+                        const paymentMethod = (selectedOrderForDetails.payment?.method || selectedOrderForDetails.paymentMethod || 'razorpay').toLowerCase()
+                        return paymentMethod === 'cash' || paymentMethod === 'cod'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-green-100 text-green-700'
+                      })()
+                    }`}>
+                      {(() => {
+                        const paymentMethod = (selectedOrderForDetails.payment?.method || selectedOrderForDetails.paymentMethod || 'razorpay').toLowerCase()
+                        if (paymentMethod === 'cash' || paymentMethod === 'cod') {
+                          return 'COD'
+                        }
+                        return 'Online'
+                      })()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Price Breakdown */}
+                {selectedOrderForDetails.pricing && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-semibold text-gray-700">Price Breakdown</span>
+                    </div>
+                    <div className="ml-6 space-y-1">
+                      {/* Only show Subtotal if it exists and is greater than 0 */}
+                      {selectedOrderForDetails.pricing.subtotal != null && Number(selectedOrderForDetails.pricing.subtotal) > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Subtotal:</span>
+                          <span className="text-gray-800">₹{Number(selectedOrderForDetails.pricing.subtotal).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {/* Only show Delivery Fee if it exists and is greater than 0 */}
+                      {selectedOrderForDetails.pricing.deliveryFee != null && Number(selectedOrderForDetails.pricing.deliveryFee) > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Delivery Fee:</span>
+                          <span className="text-green-600 font-medium">₹{Number(selectedOrderForDetails.pricing.deliveryFee).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {/* Only show Tax if it exists and is greater than 0 */}
+                      {selectedOrderForDetails.pricing.tax != null && Number(selectedOrderForDetails.pricing.tax) > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Tax:</span>
+                          <span className="text-gray-800">₹{Number(selectedOrderForDetails.pricing.tax).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {/* Only show Discount if it exists and is greater than 0 */}
+                      {selectedOrderForDetails.pricing.discount != null && Number(selectedOrderForDetails.pricing.discount) > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Discount:</span>
+                          <span className="text-red-600">-₹{Number(selectedOrderForDetails.pricing.discount).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {/* Always show Total */}
+                      <div className="flex items-center justify-between text-sm font-semibold pt-2 border-t border-gray-200">
+                        <span className="text-gray-800">Total:</span>
+                        <span className="text-gray-900">₹{(selectedOrderForDetails.pricing.total || 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Rating & Review Modal */}
       <AnimatePresence>
