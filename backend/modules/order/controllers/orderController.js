@@ -909,7 +909,7 @@ export const verifyOrderPayment = async (req, res) => {
     try {
       await sendOrderPushNotification(userId, 'user', {
         title: '✅ Payment Successful! Order Confirmed',
-        body: `Your order #${order.orderId} have been confirmed.`,
+        body: `Your order #${order.orderId} has been confirmed.`,
         data: {
           orderId: order.orderId,
           orderMongoId: order._id.toString(),

@@ -285,6 +285,7 @@ const restaurantSchema = new mongoose.Schema(
 restaurantSchema.index({ email: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ phone: 1 }, { unique: true, sparse: true });
 restaurantSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+restaurantSchema.index({ 'location.coordinates': '2dsphere' });
 
 // Hash password before saving
 restaurantSchema.pre('save', async function (next) {

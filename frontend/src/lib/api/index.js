@@ -1493,6 +1493,24 @@ export const adminAPI = {
   deleteFeedbackExperience: (id) => {
     return apiClient.delete(API_ENDPOINTS.ADMIN.FEEDBACK_EXPERIENCE_BY_ID.replace(':id', id));
   },
+
+  // Notification Management
+  getNotifications: (params = {}) => {
+    return apiClient.get(API_ENDPOINTS.ADMIN.NOTIFICATION, { params });
+  },
+  sendNotification: (formData) => {
+    return apiClient.post(API_ENDPOINTS.ADMIN.NOTIFICATION_SEND, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  toggleNotificationStatus: (id) => {
+    return apiClient.patch(API_ENDPOINTS.ADMIN.NOTIFICATION_STATUS.replace(':id', id));
+  },
+  deleteNotification: (id) => {
+    return apiClient.delete(`${API_ENDPOINTS.ADMIN.NOTIFICATION}/${id}`);
+  },
 };
 
 // Upload / media helper functions

@@ -6,26 +6,26 @@ import crypto from 'crypto';
 const getEncryptionKey = () => {
   if (process.env.ENCRYPTION_KEY) {
     const key = process.env.ENCRYPTION_KEY.trim();
-    
+
     // Check if it's a hex string (64 hex characters = 32 bytes)
     if (/^[0-9a-fA-F]{64}$/.test(key)) {
       // Convert hex string to buffer (32 bytes)
       return Buffer.from(key, 'hex');
     }
-    
+
     // If it's a hex string but not exactly 64 chars, try to use it
     if (/^[0-9a-fA-F]+$/i.test(key)) {
       // Pad or truncate to 64 hex chars (32 bytes)
       const hexKey = key.padEnd(64, '0').slice(0, 64);
       return Buffer.from(hexKey, 'hex');
     }
-    
+
     // If it's a regular string, derive 32-byte key from it
     if (key.length >= 32) {
       // Use first 32 bytes as UTF-8
       return Buffer.from(key.slice(0, 32), 'utf8');
     }
-    
+
     // Derive key using scrypt
     return crypto.scryptSync(key, 'salt', 32);
   }
@@ -58,12 +58,12 @@ export function encrypt(text) {
   if (!text) {
     return '';
   }
-  
+
   // Convert to string if not already
   if (typeof text !== 'string') {
     text = String(text);
   }
-  
+
   // Check if empty after conversion
   if (text.trim() === '') {
     return '';
@@ -74,28 +74,28 @@ export function encrypt(text) {
     if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
       throw new Error('Invalid encryption key: must be 32 bytes');
     }
-    
+
     const iv = crypto.randomBytes(IV_LENGTH);
     const salt = crypto.randomBytes(SALT_LENGTH);
-    
+
     // Derive key from encryption key and salt
     const key = crypto.scryptSync(ENCRYPTION_KEY, salt, 32);
-    
+
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-    
+
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    
+
     const tag = cipher.getAuthTag();
-    
+
     // Combine salt + iv + tag + encrypted data
     const result = salt.toString('hex') + iv.toString('hex') + tag.toString('hex') + encrypted;
-    
+
     // Validate result
     if (!result || result.length < ENCRYPTED_POSITION * 2) {
       throw new Error('Encryption produced invalid result');
     }
-    
+
     return result;
   } catch (error) {
     console.error('Encryption error:', error);
@@ -115,22 +115,30 @@ export function decrypt(encryptedText) {
     return '';
   }
 
+  // Check if string is long enough to be a valid encrypted string
+  // It needs salt (64) + iv (24) + tag (32) + at least 1 byte of data (2) = 122 chars
+  if (encryptedText.length < (SALT_LENGTH + IV_LENGTH + TAG_LENGTH) * 2) {
+    // console.warn('Decryption skipped: Text too short to be encrypted');
+    // Return empty string as we can't decrypt it and it might be sensitive
+    return '';
+  }
+
   try {
     // Extract components
     const salt = Buffer.from(encryptedText.slice(0, SALT_LENGTH * 2), 'hex');
     const iv = Buffer.from(encryptedText.slice(SALT_LENGTH * 2, TAG_POSITION * 2), 'hex');
     const tag = Buffer.from(encryptedText.slice(TAG_POSITION * 2, ENCRYPTED_POSITION * 2), 'hex');
     const encrypted = encryptedText.slice(ENCRYPTED_POSITION * 2);
-    
+
     // Derive key from encryption key and salt
     const key = crypto.scryptSync(ENCRYPTION_KEY, salt, 32);
-    
+
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(tag);
-    
+
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
-    
+
     return decrypted;
   } catch (error) {
     console.error('Decryption error:', error);
@@ -148,7 +156,7 @@ export function isEncrypted(text) {
   if (!text || text.length < ENCRYPTED_POSITION * 2) {
     return false;
   }
-  
+
   // Check if it's hex encoded and has minimum length
   return /^[0-9a-f]+$/i.test(text) && text.length >= ENCRYPTED_POSITION * 2;
 }

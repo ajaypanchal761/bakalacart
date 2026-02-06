@@ -22,9 +22,9 @@ messaging.onBackgroundMessage((payload) => {
     const notificationTitle = payload.notification?.title || 'Bakala Order Update';
     const notificationOptions = {
         body: payload.notification?.body || '',
-        icon: payload.data?.icon || '/notification-logo.png',
+        icon: payload.data?.icon || '/bakalalogo.png',
         data: payload.data,
-        tag: payload.data?.orderId // Prevent multiple notifications for same order
+        tag: payload.data?.tag || payload.data?.orderId // Prevent multiple notifications for same order/message
     };
 
     console.log(`[firebase-messaging-sw.js] Showing background notification for: ${notificationTitle}`);

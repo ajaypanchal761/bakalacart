@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging';
 
 // Firebase configuration - Hardcoded to ensure consistency across all environments
 const firebaseConfig = {
@@ -77,6 +77,6 @@ function ensureFirebaseInitialized() {
 ensureFirebaseInitialized();
 
 export const firebaseApp = app;
-export { firebaseAuth, googleProvider, messaging, getToken, onMessage, ensureFirebaseInitialized };
+export { firebaseAuth, googleProvider, messaging, getToken, onMessage, deleteToken, ensureFirebaseInitialized };
 
 

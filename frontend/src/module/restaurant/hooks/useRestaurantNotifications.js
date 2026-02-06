@@ -44,7 +44,7 @@ export const useRestaurantNotifications = () => {
 
     // Normalize backend URL - use simpler, more robust approach
     let backendUrl = API_BASE_URL;
-    
+
     // Step 1: Extract protocol and hostname using URL parsing if possible
     try {
       const urlObj = new URL(backendUrl);
@@ -57,7 +57,7 @@ export const useRestaurantNotifications = () => {
       // Remove /api suffix first
       backendUrl = backendUrl.replace(/\/api\/?$/, '');
       backendUrl = backendUrl.replace(/\/+$/, ''); // Remove trailing slashes
-      
+
       // Normalize protocol - ensure exactly two slashes after protocol
       // Fix patterns: https:/, https:///, https://https://
       if (backendUrl.startsWith('https:') || backendUrl.startsWith('http:')) {
@@ -74,43 +74,43 @@ export const useRestaurantNotifications = () => {
         }
       }
     }
-    
+
     // Final cleanup: ensure exactly two slashes after protocol
     backendUrl = backendUrl.replace(/^(https?):\/+/gi, '$1://');
     backendUrl = backendUrl.replace(/\/+$/, ''); // Remove trailing slashes
-    
+
     // CRITICAL: Check for localhost in production BEFORE creating socket
     // Detect production environment more reliably
     const frontendHostname = window.location.hostname;
-    const isLocalhost = frontendHostname === 'localhost' || 
-                        frontendHostname === '127.0.0.1' ||
-                        frontendHostname === '';
+    const isLocalhost = frontendHostname === 'localhost' ||
+      frontendHostname === '127.0.0.1' ||
+      frontendHostname === '';
     const isProductionBuild = import.meta.env.MODE === 'production' || import.meta.env.PROD;
     // Production deployment: not localhost AND (HTTPS OR has domain name with dots)
     const isProductionDeployment = !isLocalhost && (
-      window.location.protocol === 'https:' || 
+      window.location.protocol === 'https:' ||
       (frontendHostname.includes('.') && !frontendHostname.startsWith('192.168.') && !frontendHostname.startsWith('10.'))
     );
-    
+
     // If backend URL is localhost but we're not running locally, BLOCK connection
     const backendIsLocalhost = backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1');
     // Block if: backend is localhost AND (production build OR production deployment)
     // Allow if: frontend is also localhost (development scenario)
     const shouldBlockConnection = backendIsLocalhost && (isProductionBuild || isProductionDeployment) && !isLocalhost;
-    
+
     if (shouldBlockConnection) {
       // Try to infer backend URL from frontend URL (common pattern: api.domain.com or domain.com/api)
       const frontendHost = window.location.hostname;
       const frontendProtocol = window.location.protocol;
       let suggestedBackendUrl = null;
-      
+
       // Common patterns:
       if (frontendHost.includes('foods.appzeto.com')) {
         suggestedBackendUrl = `${frontendProtocol}//api.foods.appzeto.com/api`;
       } else if (frontendHost.includes('appzeto.com')) {
         suggestedBackendUrl = `${frontendProtocol}//api.${frontendHost}/api`;
       }
-      
+
       console.error('❌ CRITICAL: BLOCKING Socket.IO connection to localhost!');
       console.error('💡 This means VITE_API_BASE_URL was not set during build time');
       console.error('💡 Current backendUrl:', backendUrl);
@@ -130,19 +130,19 @@ export const useRestaurantNotifications = () => {
       }
       console.error('💡 Note: Vite environment variables are embedded at BUILD TIME, not runtime');
       console.error('💡 You must rebuild and redeploy the frontend with correct VITE_API_BASE_URL');
-      
+
       // Clean up any existing socket connection
       if (socketRef.current) {
         console.log('🧹 Cleaning up existing socket connection...');
         socketRef.current.disconnect();
         socketRef.current = null;
       }
-      
+
       // Don't try to connect to localhost in production - it will fail
       setIsConnected(false);
       return; // CRITICAL: Exit early to prevent socket creation
     }
-    
+
     // Validate backend URL format
     if (!backendUrl || !backendUrl.startsWith('http')) {
       console.error('❌ CRITICAL: Invalid backend URL format:', backendUrl);
@@ -151,10 +151,10 @@ export const useRestaurantNotifications = () => {
       setIsConnected(false);
       return; // Don't try to connect with invalid URL
     }
-    
+
     // Construct Socket.IO URL
     const socketUrl = `${backendUrl}/restaurant`;
-    
+
     // Validate socket URL format
     try {
       const urlTest = new URL(socketUrl); // This will throw if URL is invalid
@@ -174,7 +174,7 @@ export const useRestaurantNotifications = () => {
       setIsConnected(false);
       return; // Don't try to connect with invalid URL
     }
-    
+
     console.log('🔌 Attempting to connect to Socket.IO:', socketUrl);
     console.log('🔌 Backend URL:', backendUrl);
     console.log('🔌 API_BASE_URL:', API_BASE_URL);
@@ -200,30 +200,25 @@ export const useRestaurantNotifications = () => {
       }
     });
 
+    // Listen for connection
     socketRef.current.on('connect', () => {
       console.log('✅ Restaurant Socket connected, restaurantId:', restaurantId);
       console.log('✅ Socket ID:', socketRef.current.id);
-      console.log('✅ Socket URL:', socketUrl);
       setIsConnected(true);
-      
-      // Join restaurant room immediately after connection with retry
+
+      // Join restaurant room immediately after connection
       if (restaurantId) {
-        const joinRoom = () => {
-          console.log('📢 Joining restaurant room with ID:', restaurantId);
-          socketRef.current.emit('join-restaurant', restaurantId);
-          
-          // Retry join after 2 seconds if no confirmation received
-          setTimeout(() => {
-            if (socketRef.current?.connected) {
-              console.log('🔄 Retrying restaurant room join...');
-              socketRef.current.emit('join-restaurant', restaurantId);
-            }
-          }, 2000);
-        };
-        
-        joinRoom();
-      } else {
-        console.warn('⚠️ Cannot join restaurant room: restaurantId is missing');
+        socketRef.current.emit('join-restaurant', restaurantId);
+
+        // Setup ping interval to keep connection alive
+        // Clear previous interval if any
+        if (socketRef.current._pingInterval) clearInterval(socketRef.current._pingInterval);
+
+        socketRef.current._pingInterval = setInterval(() => {
+          if (socketRef.current?.connected) {
+            socketRef.current.emit('ping', { restaurantId });
+          }
+        }, 25000); // 25 seconds ping
       }
     });
 
@@ -261,7 +256,7 @@ export const useRestaurantNotifications = () => {
     socketRef.current.on('disconnect', (reason) => {
       console.log('❌ Restaurant Socket disconnected:', reason);
       setIsConnected(false);
-      
+
       if (reason === 'io server disconnect') {
         // Server disconnected the socket, reconnect manually
         socketRef.current.connect();
@@ -277,7 +272,7 @@ export const useRestaurantNotifications = () => {
     socketRef.current.on('reconnect', (attemptNumber) => {
       console.log(`✅ Reconnected after ${attemptNumber} attempts`);
       setIsConnected(true);
-      
+
       // Rejoin restaurant room after reconnection
       if (restaurantId) {
         socketRef.current.emit('join-restaurant', restaurantId);
@@ -288,7 +283,7 @@ export const useRestaurantNotifications = () => {
     socketRef.current.on('new_order', (orderData) => {
       console.log('📦 New order received:', orderData);
       setNewOrder(orderData);
-      
+
       // Play notification sound
       playNotificationSound();
     });
@@ -340,12 +335,12 @@ export const useRestaurantNotifications = () => {
       document.removeEventListener('touchstart', handleUserInteraction);
       document.removeEventListener('keydown', handleUserInteraction);
     };
-    
+
     // Listen for user interaction
     document.addEventListener('click', handleUserInteraction, { once: true });
     document.addEventListener('touchstart', handleUserInteraction, { once: true });
     document.addEventListener('keydown', handleUserInteraction, { once: true });
-    
+
     return () => {
       document.removeEventListener('click', handleUserInteraction);
       document.removeEventListener('touchstart', handleUserInteraction);
@@ -361,7 +356,7 @@ export const useRestaurantNotifications = () => {
           console.log('🔇 Audio playback skipped - user has not interacted with page yet');
           return;
         }
-        
+
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(error => {
           // Don't log autoplay policy errors as they're expected

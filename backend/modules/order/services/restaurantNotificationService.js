@@ -157,32 +157,17 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
       });
       console.log(`✅ Notified restaurant ${normalizedRestaurantId} about new order ${order.orderId} (${socketsInRoom.length} socket(s) connected)`);
     } else {
-      // No sockets found in restaurant room - log error but DO NOT broadcast to all restaurants
-      console.error(`❌ CRITICAL: No sockets found for restaurant ${normalizedRestaurantId} in any room!`);
-      console.error(`❌ Order ${order.orderId} will NOT be delivered to restaurant ${normalizedRestaurantId}`);
-      console.error(`❌ Room variations tried:`, roomVariations);
-      console.error(`❌ Restaurant name: ${order.restaurantName}`);
-      console.error(`❌ Restaurant ID from order: ${order.restaurantId}`);
-      console.error(`❌ Normalized restaurant ID: ${normalizedRestaurantId}`);
+      // No sockets found in restaurant room - log warning but DO NOT broadcast to all restaurants
+      console.warn(`⚠️ No active socket connection for restaurant ${normalizedRestaurantId} (User might be offline)`);
+      console.warn(`⚠️ Order ${order.orderId} notification will be sent via Push Notification`);
 
       // Log all connected restaurant sockets for debugging (but don't send to them)
       const allSockets = await restaurantNamespace.fetchSockets();
-      console.log(`📊 Total restaurant sockets connected: ${allSockets.length}`);
-      if (allSockets.length > 0) {
-        // Get room information for each socket
-        const socketRooms = [];
-        for (const socket of allSockets) {
-          const rooms = Array.from(socket.rooms);
-          socketRooms.push({
-            socketId: socket.id,
-            rooms: rooms.filter(r => r.startsWith('restaurant:'))
-          });
-        }
-        console.log(`📊 Connected restaurant sockets and their rooms:`, socketRooms);
+      if (allSockets.length === 0) {
+        console.log(`📊 No restaurant sockets connected to server at all.`);
       }
 
-      // Still try to emit to room variations (in case socket connects later)
-      // But DO NOT broadcast to all restaurants
+      // Still try to emit to room variations (in case socket connects later/buffered)
       roomVariations.forEach(room => {
         restaurantNamespace.to(room).emit('new_order', orderNotification);
         restaurantNamespace.to(room).emit('play_notification_sound', {
@@ -190,17 +175,9 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
           orderId: order.orderId,
           message: `New order received: ${order.orderId}`
         });
-        console.log(`📤 Emitted to room ${room} (no sockets found, but room exists for future connections)`);
       });
 
-      // Return error instead of success
-      return {
-        success: false,
-        restaurantId,
-        orderId: order.orderId,
-        error: 'Restaurant not connected to Socket.IO',
-        message: `Restaurant ${normalizedRestaurantId} (${order.restaurantName}) is not connected. Order notification not sent.`
-      };
+      // We don't return early anymore, so Push Notification below will execute!
     }
 
     // 🔥 Send Push Notification (FCM)
@@ -223,7 +200,8 @@ export async function notifyRestaurantNewOrder(order, restaurantId, paymentMetho
     return {
       success: true,
       restaurantId,
-      orderId: order.orderId
+      orderId: order.orderId,
+      socketConnected: socketsInRoom.length > 0
     };
   } catch (error) {
     console.error('Error notifying restaurant:', error);
@@ -280,6 +258,25 @@ export async function notifyRestaurantOrderUpdate(orderId, status) {
       restaurantNamespace.to(room).emit('order_status_update', updateData);
       console.log(`📤 Sent order status update to room: ${room}`);
     });
+
+    // 🔥 Send Push Notification for delivered status
+    if (status === 'delivered') {
+      try {
+        await sendOrderPushNotification(restaurantId, 'restaurant', {
+          title: '✅ Order Delivered!',
+          body: `Order #${order.orderId} has been successfully delivered by the delivery partner.`,
+          data: {
+            orderId: order.orderId,
+            orderMongoId: order._id.toString(),
+            type: 'order_delivered',
+            click_action: '/orders'
+          }
+        });
+        console.log(`✅ [Push Notification] Sent to restaurant ${restaurantId} for delivery completion`);
+      } catch (pushError) {
+        console.error('❌ [Push Notification] Error sending to restaurant:', pushError);
+      }
+    }
 
     console.log(`📢 Notified restaurant ${restaurantId} about order ${order.orderId} status: ${status}`);
   } catch (error) {

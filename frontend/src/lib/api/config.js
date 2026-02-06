@@ -11,13 +11,13 @@ let rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/
 if (rawApiBaseUrl && typeof rawApiBaseUrl === 'string') {
   // Remove leading/trailing whitespace
   rawApiBaseUrl = rawApiBaseUrl.trim();
-  
+
   // Fix duplicate protocols (https://https:// becomes https://)
   rawApiBaseUrl = rawApiBaseUrl.replace(/^(https?:\/\/)+(https?:\/\/)+/gi, (match) => {
     const protocol = match.match(/^(https?):\/\//i)?.[1] || 'https';
     return `${protocol}://`;
   });
-  
+
   // Fix malformed protocol patterns:
   // - https:/ becomes https://
   // - https: becomes https://
@@ -25,13 +25,13 @@ if (rawApiBaseUrl && typeof rawApiBaseUrl === 'string') {
   rawApiBaseUrl = rawApiBaseUrl.replace(/^(https?):\/?(?=\/|$)/i, (match, protocol) => {
     return `${protocol}://`;
   });
-  
+
   // Fix patterns like https://https:// or http://http://
   rawApiBaseUrl = rawApiBaseUrl.replace(/^(https?:\/\/)(https?:\/\/)/i, '$1');
-  
+
   // Fix multiple slashes after protocol (https:/// becomes https://)
   rawApiBaseUrl = rawApiBaseUrl.replace(/(https?:\/\/)\/+/g, '$1');
-  
+
   // Ensure it ends with /api if not already
   if (!rawApiBaseUrl.endsWith('/api')) {
     // Remove trailing slash if exists
@@ -57,7 +57,7 @@ try {
   console.error('💡 URL validation error:', urlError.message);
   console.error('💡 Raw VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL || 'Not set');
   console.error('💡 Expected format: https://your-domain.com/api or http://localhost:5000/api');
-  
+
   // Try to auto-fix common malformed patterns
   let fixedUrl = API_BASE_URL;
   // Fix patterns like "https:/" or "https://https://"
@@ -66,7 +66,7 @@ try {
     fixedUrl = parts[0] + '://' + parts[parts.length - 1]; // Take first protocol and last part
     console.warn('⚠️ Auto-fixing malformed URL pattern, new URL:', fixedUrl);
   }
-  
+
   // If still invalid, warn but don't change it
   try {
     new URL(fixedUrl);
@@ -360,6 +360,9 @@ export const API_ENDPOINTS = {
     ZONES: '/admin/zones',
     ZONE_BY_ID: '/admin/zones/:id',
     ZONE_STATUS: '/admin/zones/:id/status',
+    NOTIFICATION: '/notification',
+    NOTIFICATION_SEND: '/notification/send',
+    NOTIFICATION_STATUS: '/notification/:id/status',
   },
   // Order endpoints
   ORDER: {

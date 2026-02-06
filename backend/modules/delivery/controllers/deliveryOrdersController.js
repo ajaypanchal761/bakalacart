@@ -23,8 +23,24 @@ const logger = winston.createLogger({
   ]
 });
 
+
+// Helper to send user notification safely
+const notifyUserSafely = async (userId, title, body, data) => {
+  try {
+    const { sendOrderPushNotification } = await import('../../order/services/pushNotificationService.js');
+    await sendOrderPushNotification(userId, 'user', {
+      title,
+      body,
+      data: { ...data, icon: '/bakalalogo.png' }
+    });
+    console.log(`✅ [Push Notification] Sent to user: ${title}`);
+  } catch (error) {
+    console.error('❌ [Push Notification] Error sending to user:', error);
+  }
+};
+
+
 /**
- * Get Delivery Partner Orders
  * GET /api/delivery/orders
  * Query params: status, page, limit
  */
@@ -674,6 +690,22 @@ export const acceptOrder = asyncHandler(async (req, res) => {
     console.log(`✅ Order ${order.orderId} accepted by delivery partner ${delivery._id}`);
     console.log(`📍 Route calculated: ${routeData.distance.toFixed(2)} km, ${routeData.duration.toFixed(1)} mins`);
 
+    // Notify user about delivery partner assignment
+    if (updatedOrder.userId) {
+      await notifyUserSafely(
+        updatedOrder.userId,
+        'Delivery Partner Assigned',
+        `Your delivery partner ${delivery.name} has accepted your order and is on the way to the restaurant.`,
+        {
+          orderId: updatedOrder.orderId,
+          orderMongoId: updatedOrder._id.toString(),
+          type: 'delivery_assigned',
+          click_action: '/my-orders'
+        }
+      );
+    }
+
+
     // Calculate delivery distance (restaurant to customer) for earnings calculation
     let deliveryDistance = 0;
     if (updatedOrder.restaurantId?.location?.coordinates && updatedOrder.address?.location?.coordinates) {
@@ -865,6 +897,21 @@ export const denyOrder = asyncHandler(async (req, res) => {
         currentPhase: 'assigned'
       };
       console.log(`🔄 Unassigned order ${order.orderId} from delivery partner ${deliveryId}`);
+
+      // Notify user that we're finding a new partner
+      if (order.userId) {
+        await notifyUserSafely(
+          order.userId._id || order.userId,
+          'Updating Delivery Partner',
+          'Your delivery partner had to cancel. We are assigning a new one for you right now.',
+          {
+            orderId: order.orderId,
+            orderMongoId: order._id.toString(),
+            type: 'delivery_unassigned',
+            click_action: '/my-orders'
+          }
+        );
+      }
     }
 
     await order.save();
@@ -977,6 +1024,22 @@ export const confirmReachedPickup = asyncHandler(async (req, res) => {
     await order.save();
 
     console.log(`✅ Delivery partner ${delivery._id} reached pickup for order ${order.orderId}`);
+
+    // Notify user
+    if (order.userId) {
+      await notifyUserSafely(
+        order.userId,
+        'Delivery Partner Reached Restaurant',
+        'Your delivery partner has reached the restaurant to pick up your order.',
+        {
+          orderId: order.orderId,
+          orderMongoId: order._id.toString(),
+          type: 'reached_pickup',
+          click_action: '/my-orders'
+        }
+      );
+    }
+
 
     // After 10 seconds, trigger order ID confirmation request
     // Use order._id (MongoDB ObjectId) instead of orderId string
@@ -1294,6 +1357,22 @@ export const confirmOrderId = asyncHandler(async (req, res) => {
     console.log(`✅ Order ID confirmed for order ${order.orderId}`);
     console.log(`📍 Route to delivery calculated: ${routeData.distance.toFixed(2)} km, ${routeData.duration.toFixed(1)} mins`);
 
+    // Notify user
+    if (updatedOrder.userId) {
+      await notifyUserSafely(
+        updatedOrder.userId,
+        'Order Picked Up!',
+        'Your order has been picked up and is on the way to you.',
+        {
+          orderId: updatedOrder.orderId,
+          orderMongoId: updatedOrder._id.toString(),
+          type: 'out_for_delivery',
+          click_action: '/my-orders'
+        }
+      );
+    }
+
+
     // Send response first, then handle socket notification asynchronously
     const responseData = {
       order: updatedOrder,
@@ -1494,6 +1573,22 @@ export const confirmReachedDrop = asyncHandler(async (req, res) => {
     const orderIdForLog = finalOrder.orderId || finalOrder._id?.toString() || orderId;
     console.log(`✅ Delivery partner ${delivery._id} reached drop location for order ${orderIdForLog}`);
 
+    const userIdForDrop = finalOrder.userId;
+    if (userIdForDrop) {
+      await notifyUserSafely(
+        userIdForDrop,
+        'Delivery Partner Arrived',
+        'Your delivery partner has reached your location.',
+        {
+          orderId: finalOrder.orderId,
+          orderMongoId: finalOrder._id.toString(),
+          type: 'reached_drop',
+          click_action: '/my-orders'
+        }
+      );
+    }
+
+
     return successResponse(res, 200, 'Reached drop confirmed', {
       order: finalOrder,
       message: 'Reached drop location confirmed'
@@ -1693,6 +1788,22 @@ export const completeDelivery = asyncHandler(async (req, res) => {
 
     const orderIdForLog = updatedOrder.orderId || order.orderId || orderMongoId?.toString() || orderId;
     console.log(`✅ Order ${orderIdForLog} marked as delivered by delivery partner ${delivery._id}`);
+
+    const userIdForComplete = updatedOrder.userId;
+    if (userIdForComplete) {
+      await notifyUserSafely(
+        userIdForComplete,
+        'Order Delivered!',
+        'Your order has been successfully delivered. Enjoy your meal!',
+        {
+          orderId: updatedOrder.orderId,
+          orderMongoId: updatedOrder._id.toString(),
+          type: 'order_delivered',
+          click_action: '/my-orders'
+        }
+      );
+    }
+
 
     // Mark COD payment as collected (admin Payment Status → Collected)
     if (order.payment?.method === 'cash' || order.payment?.method === 'cod') {
@@ -2012,11 +2123,15 @@ export const completeDelivery = asyncHandler(async (req, res) => {
     const response = successResponse(res, 200, 'Delivery completed successfully', responseData);
 
     // Handle notifications asynchronously (don't block response)
+    // Handle notifications asynchronously (don't block response)
     const orderIdForNotification = orderMongoId?.toString ? orderMongoId.toString() : orderMongoId;
+    console.log(`🔔 [Delivery] Initiating notifications for order ${orderIdForNotification} (Status: delivered)`);
+
     Promise.all([
       // Notify restaurant about delivery completion
       (async () => {
         try {
+          console.log(`🔔 [Delivery] Notifying restaurant for order ${orderIdForNotification}`);
           const { notifyRestaurantOrderUpdate } = await import('../../order/services/restaurantNotificationService.js');
           await notifyRestaurantOrderUpdate(orderIdForNotification, 'delivered');
         } catch (notifError) {
@@ -2026,12 +2141,34 @@ export const completeDelivery = asyncHandler(async (req, res) => {
       // Notify user about delivery completion
       (async () => {
         try {
+          console.log(`🔔 [Delivery] Notifying user for order ${orderIdForNotification}`);
           const { notifyUserOrderUpdate } = await import('../../order/services/userNotificationService.js');
           if (notifyUserOrderUpdate) {
             await notifyUserOrderUpdate(orderIdForNotification, 'delivered');
+          } else {
+            console.error('❌ notifyUserOrderUpdate import failed or is undefined');
           }
         } catch (notifError) {
           console.error('Error sending user notification:', notifError);
+        }
+      })(),
+      // Notify all admins about order completion
+      (async () => {
+        try {
+          const { sendAdminPushNotification } = await import('../../order/services/pushNotificationService.js');
+          await sendAdminPushNotification({
+            title: '✅ Order Delivered!',
+            body: `Order #${order.orderId} from ${order.restaurantName} was delivered successfully.`,
+            data: {
+              orderId: order.orderId,
+              orderMongoId: order._id.toString(),
+              type: 'order_completed_admin',
+              click_action: '/admin/orders'
+            }
+          });
+          console.log(`✅ [Push Notification] Sent to admins for order ${order.orderId} completion`);
+        } catch (adminNotifError) {
+          console.error('Error sending admin completion notification:', adminNotifError);
         }
       })()
     ]).catch(error => {

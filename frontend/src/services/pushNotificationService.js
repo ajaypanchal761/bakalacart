@@ -1,5 +1,5 @@
 
-import { messaging, getToken, onMessage } from '@/lib/firebase';
+import { messaging, getToken, onMessage, deleteToken } from '@/lib/firebase';
 import axios from 'axios';
 
 const VAPID_KEY = "BKcDctPiH-WKLjyXh6RkJAl0S4vYWFe47m-Q0aHbmHkBgX1hhf5DhZjrYMyclPEW1vk9LvHoHnltavn6Iv2by8w";
@@ -40,8 +40,10 @@ async function getFCMToken() {
     try {
         const registration = await registerServiceWorker();
 
-        // In many cases, we don't need update() unless SW changed, but keeping it for robustness
-        // await registration.update(); 
+        // Ensure SW is up to date
+        if (registration && registration.update) {
+            await registration.update();
+        }
 
         // Check if permission granted
         if (Notification.permission !== 'granted') {
@@ -56,6 +58,28 @@ async function getFCMToken() {
 
         if (token) {
             console.log('✅ FCM Token obtained:', token);
+
+            // SPECIAL FIX: Force refresh ONCE if we suspect stuck token
+            // This flag can be manually cleared or versioned if needed again
+            const REFRESH_FIX_KEY = 'fcm_fix_v1_refresh_done';
+            if (!localStorage.getItem(REFRESH_FIX_KEY)) {
+                console.log('🔄 [FCM Fix] Forcing token refresh to clear potential stale tokens...');
+                try {
+                    await deleteToken(messaging);
+                    console.log('🗑️ [FCM Fix] Old token deleted.');
+
+                    // Get new token
+                    const newToken = await getToken(messaging, {
+                        vapidKey: VAPID_KEY,
+                        serviceWorkerRegistration: registration
+                    });
+                    console.log('✅ [FCM Fix] New FRESH token obtained:', newToken);
+                    localStorage.setItem(REFRESH_FIX_KEY, 'true');
+                    return newToken;
+                } catch (refreshError) {
+                    console.warn('⚠️ [FCM Fix] Failed to force refresh, using original token:', refreshError);
+                }
+            }
             return token;
         } else {
             console.log('❌ No FCM token available');
@@ -103,9 +127,7 @@ async function registerFCMToken(authType = 'user', authToken = null) {
         console.log(`🔍 [FCM Service] Checking sync status for ${authType}:`, { savedToken: savedToken ? 'exists' : 'null', synced: savedTokenSynced, newToken: token });
 
         if (savedToken === token && savedTokenSynced === 'true') {
-            console.log(`ℹ️ [FCM Service] Token already synced for ${authType}, skipping backend call (Debugging: forcing call might be needed if user issue persists)`);
-            // FORCE SYNC FOR DEBUGGING - COMMENT OUT TO RESTORE CACHING
-            // return token; 
+            console.debug(`ℹ️ [FCM Service] Token already synced for ${authType}, but forcing update to ensure backend is in sync.`);
         }
 
         // Prepare headers
@@ -179,7 +201,8 @@ async function registerFCMToken(authType = 'user', authToken = null) {
         return token;
     } catch (error) {
         console.error(`❌ [FCM Service] Error registering FCM token for ${authType}:`, error.response?.data || error.message);
-        // Don't duplicate error logs too much
+        // If registration failed, clear synced status so we try again next time
+        localStorage.removeItem(`fcm_token_${authType}_synced`);
     }
 }
 
@@ -192,7 +215,7 @@ function setupForegroundNotificationHandler(handler) {
         if ('Notification' in window && Notification.permission === 'granted') {
             const { title, body } = payload.notification || {};
             // Use the provided icon or default
-            const icon = payload.data?.icon || '/notification-logo.png';
+            const icon = payload.data?.icon || '/bakalalogo.png';
 
             console.log(`🔔 [FCM Service] Displaying real-time notification: ${title}`);
 

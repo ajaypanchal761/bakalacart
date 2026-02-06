@@ -8,6 +8,8 @@ import SearchOverlay from "./SearchOverlay"
 import LocationSelectorOverlay from "./LocationSelectorOverlay"
 import BottomNavigation from "./BottomNavigation"
 import DesktopNavbar from "./DesktopNavbar"
+import { registerFCMToken } from "@/services/pushNotificationService"
+import { getModuleToken } from "@/lib/utils/auth"
 
 // Create SearchOverlay context with default value
 const SearchOverlayContext = createContext({
@@ -19,7 +21,7 @@ const SearchOverlayContext = createContext({
   openSearch: () => {
     console.warn("SearchOverlayProvider not available")
   },
-  closeSearch: () => {}
+  closeSearch: () => { }
 })
 
 export function useSearchOverlay() {
@@ -60,7 +62,7 @@ const LocationSelectorContext = createContext({
   openLocationSelector: () => {
     console.warn("LocationSelectorProvider not available")
   },
-  closeLocationSelector: () => {}
+  closeLocationSelector: () => { }
 })
 
 export function useLocationSelector() {
@@ -107,17 +109,34 @@ export default function UserLayout() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
   }, [location.pathname, location.search, location.hash])
 
+  // Register FCM Token on mount if user is logged in
+  useEffect(() => {
+    const registerToken = async () => {
+      try {
+        const token = getModuleToken('user');
+        if (token) {
+          // Register token to ensure notifications work
+          await registerFCMToken('user', token);
+        }
+      } catch (error) {
+        console.error('Error registering FCM token:', error);
+      }
+    };
+
+    registerToken();
+  }, []);
+
   // Note: Authentication checks and redirects are handled by ProtectedRoute components
   // UserLayout should not interfere with authentication redirects
 
   // Show bottom navigation only on home page, under-250 page, and profile page
-  const showBottomNav = location.pathname === "/" || 
-                        location.pathname === "/user" ||
-                        location.pathname === "/under-250" ||
-                        location.pathname === "/user/under-250" ||
-                        location.pathname === "/profile" ||
-                        location.pathname === "/user/profile" ||
-                        location.pathname.startsWith("/user/profile")
+  const showBottomNav = location.pathname === "/" ||
+    location.pathname === "/user" ||
+    location.pathname === "/under-250" ||
+    location.pathname === "/user/under-250" ||
+    location.pathname === "/profile" ||
+    location.pathname === "/user/profile" ||
+    location.pathname.startsWith("/user/profile")
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] dark:bg-[#0a0a0a] transition-colors duration-200">

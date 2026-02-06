@@ -54,17 +54,23 @@ export const sendPushNotification = async (tokens, payload) => {
         console.log(`📡 [FCM] Title: "${payload.title}" | Recipient count: ${tokens.length}`);
 
         // Optional: cleanup invalid tokens
+        const failedTokens = [];
         if (response.failureCount > 0) {
-            const failedTokens = [];
             response.responses.forEach((resp, idx) => {
                 if (!resp.success) {
                     failedTokens.push(tokens[idx]);
+                    console.error(`❌ [FCM Error] Token: ${tokens[idx].substring(0, 10)}... Error:`, resp.error);
                 }
             });
             console.log('Failed tokens:', failedTokens);
         }
 
-        return response;
+        return {
+            successCount: response.successCount,
+            failureCount: response.failureCount,
+            failedTokens: failedTokens,
+            responses: response.responses
+        };
     } catch (error) {
         console.error('Error sending message:', error);
         // Don't throw error to prevent blocking main flow

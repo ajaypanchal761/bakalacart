@@ -81,6 +81,42 @@ export const createFeedbackExperience = asyncHandler(async (req, res) => {
       metadata
     });
 
+    // 🔥 Send Push Notifications
+    (async () => {
+      try {
+        const { sendAdminPushNotification, sendOrderPushNotification } = await import('../../order/services/pushNotificationService.js');
+
+        // 1. Notify all admins
+        await sendAdminPushNotification({
+          title: '🌟 New Feedback Received',
+          body: `${userName} gave a ${rating}/10 rating for ${finalModule} module.`,
+          data: {
+            type: 'new_feedback',
+            feedbackId: feedbackExperience._id.toString(),
+            rating,
+            module: finalModule,
+            click_action: '/admin/feedback'
+          }
+        });
+
+        // 2. Notify restaurant if feedback is for a restaurant
+        if (finalRestaurantId && finalModule === 'user') {
+          await sendOrderPushNotification(finalRestaurantId, 'restaurant', {
+            title: '🌟 New Customer Review!',
+            body: `A customer rated you ${rating}/10. Check feedback details.`,
+            data: {
+              type: 'new_feedback',
+              feedbackId: feedbackExperience._id.toString(),
+              rating,
+              click_action: '/reviews'
+            }
+          });
+        }
+      } catch (notifError) {
+        console.error('❌ Error sending feedback notifications:', notifError);
+      }
+    })();
+
     return successResponse(res, 201, 'Feedback experience created successfully', {
       feedbackExperience
     });

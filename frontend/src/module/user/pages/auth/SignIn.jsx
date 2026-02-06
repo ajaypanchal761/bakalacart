@@ -88,6 +88,13 @@ export default function SignIn() {
       // Get FCM Token before login
       let fcmToken = null;
       try {
+        // Explicitly update SW if possible before getting token
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let registration of registrations) {
+            await registration.update();
+          }
+        }
         fcmToken = await getFCMToken();
       } catch (fcmError) {
         console.error("❌ Error getting FCM token during login:", fcmError);

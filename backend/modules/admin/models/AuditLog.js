@@ -51,20 +51,24 @@ const auditLogSchema = new mongoose.Schema({
 
   // Transaction Details (for financial transactions)
   transactionDetails: {
-    amount: Number,
-    currency: { type: String, default: 'INR' },
-    type: String,
-    status: String,
-    orderId: {
-      type: String, // Changed from ObjectId to String to support custom order IDs
-      ref: 'Order',
-      sparse: true
-    },
-    walletType: {
+    type: new mongoose.Schema({
+      amount: Number,
+      currency: { type: String, default: 'INR' },
       type: String,
-      enum: ['user', 'restaurant', 'delivery', 'admin'],
-      sparse: true
-    }
+      status: String,
+      orderId: {
+        type: String, // Changed from ObjectId to String to support custom order IDs
+        ref: 'Order',
+        sparse: true
+      },
+      walletType: {
+        type: String,
+        enum: ['user', 'restaurant', 'delivery', 'admin'],
+        sparse: true
+      },
+      razorpayRefundId: String,
+      razorpayPaymentId: String
+    }, { _id: false })
   },
 
   // Commission Change Details
